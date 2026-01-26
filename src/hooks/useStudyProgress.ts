@@ -23,8 +23,8 @@ interface StudyStats {
   lastStudyDate: string;
 }
 
-const STORAGE_KEY = "studylaw_progress";
-const FAVORITES_KEY = "studylaw_favorites";
+const STORAGE_KEY = "pandora_progress";
+const FAVORITES_KEY = "pandora_favorites";
 
 export function useStudyProgress() {
   const [progress, setProgress] = useState<CourseProgress>(() => {
