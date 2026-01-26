@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { CheckCircle2, XCircle, RotateCcw, Trophy } from "lucide-react";
 import { Section, QuizQuestion } from "@/data/courses";
 import { cn } from "@/lib/utils";
+import { validateShortAnswer } from "@/lib/textMatching";
 
 interface QuizSectionProps {
   section: Section;
@@ -11,7 +12,7 @@ interface QuizSectionProps {
 
 interface QuizState {
   answers: { [key: number]: string | number | boolean | null };
-  results: { [key: number]: { correct: boolean; explanation: string } | null };
+  results: { [key: number]: { correct: boolean; explanation: string; hint?: string } | null };
   validated: boolean;
   score: number;
 }
@@ -58,25 +59,27 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
     section.quiz.forEach((q, idx) => {
       const answer = state.answers[idx];
       let correct = false;
+      let hint: string | undefined;
 
       if (q.type === "mcq" && answer !== undefined && answer !== null) {
         correct = Number(answer) === q.correctAnswer;
       } else if (q.type === "tf" && answer !== undefined && answer !== null) {
         correct = answer === q.correctAnswer;
       } else if (q.type === "short" && typeof answer === "string" && Array.isArray(q.correctAnswer)) {
-        const userAnswer = answer.toLowerCase().trim();
-        // Check if at least 2 keywords match (or 1 if only 1-2 expected)
-        const matches = q.correctAnswer.filter((expected) =>
-          userAnswer.includes(expected.toLowerCase())
-        );
-        const requiredMatches = q.correctAnswer.length <= 2 ? 1 : 2;
-        correct = matches.length >= requiredMatches;
+        // Use smart validation
+        const validation = validateShortAnswer(answer, q.correctAnswer, 0.4);
+        correct = validation.isCorrect;
+        
+        if (!correct && validation.missedKeywords.length > 0) {
+          hint = `Mots-clés attendus : ${validation.missedKeywords.slice(0, 2).join(", ")}...`;
+        }
       }
 
       if (correct) score++;
       newResults[idx] = {
         correct,
         explanation: q.explanation,
+        hint,
       };
     });
 
@@ -240,7 +243,7 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
       {/* Previous score info */}
       {previousScore && previousScore.attempts > 0 && (
         <div className="mb-4 p-3 rounded-xl bg-muted/30 border border-border/30 flex items-center gap-3">
-          <Trophy className="w-5 h-5 text-amber-500" />
+          <Trophy className="w-5 h-5 text-primary" />
           <div className="flex-1">
             <p className="text-xs text-muted-foreground">Meilleur score</p>
             <p className="text-sm font-bold">{previousScore.bestScore}/{section.quiz.length}</p>
