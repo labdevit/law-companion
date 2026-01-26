@@ -1,168 +1,232 @@
 import { useState, useMemo } from "react";
-import { Brain, Sparkles, RotateCcw, BookOpen, HelpCircle } from "lucide-react";
-import { SECTIONS } from "@/data/sections";
+import { Brain, Sparkles, RotateCcw, BookOpen, HelpCircle, Menu, X, Home } from "lucide-react";
+import { COURSES, Course, Section, getAllSections } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
-import { Sidebar } from "@/components/Sidebar";
+import { CourseCard } from "@/components/CourseCard";
+import { ChapterNav } from "@/components/ChapterNav";
 import { CourseContent } from "@/components/CourseContent";
 import { QuizSection } from "@/components/QuizSection";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
-  const [activeId, setActiveId] = useState<string | null>(SECTIONS[0]?.id || null);
-  const [focusMode, setFocusMode] = useState(false);
+  const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [highlightsEnabled, setHighlightsEnabled] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const {
-    isFavorite,
-    toggleFavorite,
-    getSectionProgress,
     updateSectionProgress,
-    getTotalScore,
-    getCompletedCount,
+    toggleFavorite,
+    isFavorite,
+    getSectionProgress,
+    getStats,
+    getProgressPercentage,
     resetProgress,
   } = useStudyProgress();
 
-  const activeSection = useMemo(
-    () => SECTIONS.find((s) => s.id === activeId) || null,
-    [activeId]
+  const activeCourse = useMemo(
+    () => COURSES.find((c) => c.id === activeCourseId) || null,
+    [activeCourseId]
   );
 
+  const activeSection = useMemo(() => {
+    if (!activeCourse || !activeSectionId) return null;
+    return getAllSections(activeCourse).find((s) => s.id === activeSectionId) || null;
+  }, [activeCourse, activeSectionId]);
+
+  const stats = getStats();
+
+  const handleSelectCourse = (courseId: string) => {
+    setActiveCourseId(courseId);
+    const course = COURSES.find((c) => c.id === courseId);
+    if (course && course.chapters[0]?.sections[0]) {
+      setActiveSectionId(course.chapters[0].sections[0].id);
+    }
+    setSidebarOpen(false);
+  };
+
   const handleValidateQuiz = (score: number, total: number) => {
-    if (activeId) {
-      return updateSectionProgress(activeId, score, total);
+    if (activeSectionId) {
+      return updateSectionProgress(activeSectionId, score, total);
     }
     return false;
   };
 
   const handleReset = () => {
-    if (confirm("Reset tous les progrès et favoris ?")) {
+    if (confirm("Réinitialiser tous les progrès ?")) {
       resetProgress();
     }
   };
 
+  // Home view (no course selected)
+  if (!activeCourse) {
+    return (
+      <div className="min-h-screen p-4 lg:p-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <header className="mb-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-black text-white shadow-lg">
+                SL
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">StudyLaw</h1>
+                <p className="text-sm text-muted-foreground">Révise efficacement avec des cours structurés et des quiz</p>
+              </div>
+            </div>
+
+            <StatsDisplay
+              totalScore={stats.totalScore}
+              totalQuestions={stats.totalQuestions}
+              sectionsCompleted={stats.sectionsCompleted}
+              totalSections={stats.totalSections}
+            />
+          </header>
+
+          {/* Course grid */}
+          <section>
+            <h2 className="text-lg font-bold mb-4">📚 Choisis un cours</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              {COURSES.map((course) => {
+                const allSections = getAllSections(course);
+                const progress = getProgressPercentage(course.id, allSections.map((s) => s.id));
+                return (
+                  <CourseCard
+                    key={course.id}
+                    course={course}
+                    progress={progress}
+                    isActive={false}
+                    onClick={() => handleSelectCourse(course.id)}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  // Course view
+  const allSections = getAllSections(activeCourse);
+  const courseProgress = getProgressPercentage(activeCourse.id, allSections.map((s) => s.id));
+
   return (
-    <div
-      className={cn(
-        "flex min-h-screen transition-colors duration-300",
-        focusMode && "bg-[hsl(222,47%,3%)]"
+    <div className="min-h-screen flex">
+      {/* Mobile menu button */}
+      <button
+        onClick={() => setSidebarOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-xl border border-border/50 bg-card/90 backdrop-blur-sm"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setSidebarOpen(false)} />
       )}
-    >
+
       {/* Sidebar */}
-      <Sidebar
-        sections={SECTIONS}
-        activeId={activeId}
-        onSelectSection={setActiveId}
-        isFavorite={isFavorite}
-        onToggleFavorite={toggleFavorite}
-        isCompleted={(id) => !!getSectionProgress(id)?.done}
-      />
+      <aside
+        className={cn(
+          "fixed lg:sticky top-0 left-0 h-screen w-80 p-4 flex flex-col glass-panel z-50 transition-transform duration-300 overflow-hidden",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+        <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-4 right-4">
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Back button */}
+        <button
+          onClick={() => setActiveCourseId(null)}
+          className="flex items-center gap-2 p-2 rounded-xl hover:bg-muted/30 text-sm text-muted-foreground mb-4"
+        >
+          <Home className="w-4 h-4" />
+          Retour aux cours
+        </button>
+
+        {/* Course header */}
+        <div className={cn("p-3 rounded-xl mb-4 bg-gradient-to-br", activeCourse.color)}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{activeCourse.icon}</span>
+            <div>
+              <h2 className="font-bold text-sm text-white">{activeCourse.title}</h2>
+              <p className="text-xs text-white/70">{courseProgress}% complété</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Chapter navigation */}
+        <div className="flex-1 overflow-auto custom-scrollbar">
+          <ChapterNav
+            chapters={activeCourse.chapters}
+            activeSection={activeSectionId}
+            onSelectSection={(id) => {
+              setActiveSectionId(id);
+              setSidebarOpen(false);
+            }}
+            getSectionProgress={getSectionProgress}
+            isFavorite={isFavorite}
+            onToggleFavorite={toggleFavorite}
+          />
+        </div>
+      </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-5 lg:p-6 lg:pl-8">
+      <main className="flex-1 p-4 lg:p-6 lg:pl-8">
         {/* Top bar */}
-        <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
-          <div className="pl-12 lg:pl-0">
-            <h2 className="text-lg font-bold">
-              {activeSection?.title || "Bienvenue 👋"}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {activeSection?.desc || "Sélectionne une section à gauche pour commencer."}
-            </p>
+        <header className="flex items-center justify-between gap-4 mb-5 pl-12 lg:pl-0">
+          <div>
+            <h2 className="text-lg font-bold">{activeSection?.title || "Sélectionne une section"}</h2>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setFocusMode(!focusMode)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2.5 text-[13px] rounded-2xl border transition-all duration-150 hover:-translate-y-0.5",
-                focusMode
-                  ? "border-primary/50 bg-primary/20"
-                  : "border-border/50 bg-white/[0.04]"
-              )}
-            >
-              <Brain className="w-4 h-4" />
-              Mode Focus {focusMode && "ON"}
-            </button>
-
+          <div className="flex gap-2">
             <button
               onClick={() => setHighlightsEnabled(!highlightsEnabled)}
               className={cn(
-                "flex items-center gap-2 px-3 py-2.5 text-[13px] rounded-2xl border transition-all duration-150 hover:-translate-y-0.5",
-                highlightsEnabled
-                  ? "border-border/50 bg-white/[0.04]"
-                  : "border-muted/50 bg-muted/20"
+                "flex items-center gap-2 px-3 py-2 text-xs rounded-xl border transition-all",
+                highlightsEnabled ? "border-primary/50 bg-primary/10" : "border-border/50 bg-card/50"
               )}
             >
               <Sparkles className="w-4 h-4" />
               Surlignage {highlightsEnabled ? "ON" : "OFF"}
             </button>
-
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-2 px-3 py-2.5 text-[13px] rounded-2xl border border-secondary/40 bg-gradient-to-r from-secondary/20 to-primary/10 transition-all duration-150 hover:-translate-y-0.5"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset progrès
-            </button>
           </div>
         </header>
 
         {/* Content grid */}
-        <div className="grid lg:grid-cols-[1.4fr_0.9fr] gap-4">
-          {/* Course card */}
-          <section className="rounded-2xl border border-border/50 bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-lg overflow-hidden card-glow">
-            <div className="px-4 py-3.5 border-b border-border/50 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  Cours (Synthèse structurée)
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Les mots clés sont en{" "}
-                  <span className="hl">violet</span> /{" "}
-                  <span className="hlg">vert</span> /{" "}
-                  <span className="hlo">orange</span>
-                </p>
+        {activeSection ? (
+          <div className="grid lg:grid-cols-[1.3fr_1fr] gap-4">
+            {/* Course content */}
+            <section className="rounded-2xl border border-border/50 bg-card/50 p-5 shadow-lg">
+              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
+                <BookOpen className="w-4 h-4" />
+                <span>Cours</span>
               </div>
-              {activeSection && (
-                <span className="text-xs px-3 py-1.5 rounded-full border border-border/50 bg-white/[0.04] text-muted-foreground">
-                  {activeSection.subject}
-                </span>
-              )}
-            </div>
-            <div className="p-4">
               <CourseContent section={activeSection} highlightsEnabled={highlightsEnabled} />
-            </div>
-          </section>
+            </section>
 
-          {/* Quiz card */}
-          <aside className="rounded-2xl border border-border/50 bg-gradient-to-b from-white/[0.05] to-white/[0.02] shadow-lg overflow-hidden card-glow">
-            <div className="px-4 py-3.5 border-b border-border/50 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <HelpCircle className="w-4 h-4 text-secondary" />
-                  Quiz de la section
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1">Réponds puis valide</p>
+            {/* Quiz */}
+            <aside className="rounded-2xl border border-border/50 bg-card/50 p-5 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <HelpCircle className="w-4 h-4" />
+                  <span>Quiz ({activeSection.quiz.length} questions)</span>
+                </div>
               </div>
-              <span className="text-xs px-3 py-1.5 rounded-full border border-border/50 bg-white/[0.04] text-muted-foreground">
-                {activeSection?.quiz.length || 0} question
-                {(activeSection?.quiz.length || 0) > 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="p-4">
-              <StatsDisplay
-                totalScore={getTotalScore()}
-                completedCount={getCompletedCount()}
+              <QuizSection
+                section={activeSection}
+                onComplete={handleValidateQuiz}
+                previousScore={getSectionProgress(activeSection.id)}
               />
-
-              <div className="h-4" />
-
-              <QuizSection section={activeSection} onValidate={handleValidateQuiz} />
-            </div>
-          </aside>
-        </div>
+            </aside>
+          </div>
+        ) : (
+          <div className="text-center py-20 text-muted-foreground">
+            Sélectionne une section dans le menu pour commencer.
+          </div>
+        )}
       </main>
     </div>
   );

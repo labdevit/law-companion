@@ -1,19 +1,11 @@
-import { Section } from "@/data/sections";
+import { Section } from "@/data/courses";
 
 interface CourseContentProps {
-  section: Section | null;
+  section: Section;
   highlightsEnabled: boolean;
 }
 
 export function CourseContent({ section, highlightsEnabled }: CourseContentProps) {
-  if (!section) {
-    return (
-      <div className="flex items-center justify-center h-40 text-muted-foreground">
-        <p>Sélectionne une section pour commencer</p>
-      </div>
-    );
-  }
-
   let content = section.content;
 
   // Remove highlight classes if disabled
@@ -25,9 +17,12 @@ export function CourseContent({ section, highlightsEnabled }: CourseContentProps
   }
 
   return (
-    <div
-      className="course-content animate-fade-in"
-      dangerouslySetInnerHTML={{ __html: content }}
-    />
+    <div className="animate-fade-in">
+      <h2 className="text-lg font-bold mb-4">{section.title}</h2>
+      <div
+        className="course-content"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    </div>
   );
 }

@@ -1,126 +1,162 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { Section, QuizQuestion } from "@/data/sections";
+import { CheckCircle2, XCircle, RotateCcw, Trophy } from "lucide-react";
+import { Section, QuizQuestion } from "@/data/courses";
 import { cn } from "@/lib/utils";
 
 interface QuizSectionProps {
-  section: Section | null;
-  onValidate: (score: number, total: number) => boolean;
+  section: Section;
+  onComplete: (score: number, total: number) => boolean;
+  previousScore?: { bestScore: number; attempts: number };
 }
 
-interface QuizAnswer {
-  [questionIndex: number]: string | number | boolean | null;
+interface QuizState {
+  answers: { [key: number]: string | number | boolean | null };
+  results: { [key: number]: { correct: boolean; explanation: string } | null };
+  validated: boolean;
+  score: number;
 }
 
-interface QuizResult {
-  [questionIndex: number]: {
-    correct: boolean;
-    explanation: string;
-  } | null;
-}
-
-export function QuizSection({ section, onValidate }: QuizSectionProps) {
-  const [answers, setAnswers] = useState<QuizAnswer>({});
-  const [results, setResults] = useState<QuizResult>({});
-  const [validated, setValidated] = useState(false);
+export function QuizSection({ section, onComplete, previousScore }: QuizSectionProps) {
+  const [state, setState] = useState<QuizState>({
+    answers: {},
+    results: {},
+    validated: false,
+    score: 0,
+  });
   const [tipMessage, setTipMessage] = useState("");
 
   // Reset when section changes
   useEffect(() => {
-    setAnswers({});
-    setResults({});
-    setValidated(false);
+    setState({
+      answers: {},
+      results: {},
+      validated: false,
+      score: 0,
+    });
     setTipMessage("");
-  }, [section?.id]);
+  }, [section.id]);
 
-  if (!section || section.quiz.length === 0) {
+  if (section.quiz.length === 0) {
     return (
-      <div className="text-sm text-muted-foreground py-4">
-        Aucun quiz pour cette section.
+      <div className="text-sm text-muted-foreground py-8 text-center">
+        <p>Aucun quiz pour cette section.</p>
       </div>
     );
   }
 
   const handleAnswerChange = (index: number, value: string | number | boolean) => {
-    setAnswers((prev) => ({ ...prev, [index]: value }));
+    setState((prev) => ({
+      ...prev,
+      answers: { ...prev.answers, [index]: value },
+    }));
   };
 
   const handleValidate = () => {
     let score = 0;
-    const newResults: QuizResult = {};
+    const newResults: typeof state.results = {};
 
     section.quiz.forEach((q, idx) => {
-      const answer = answers[idx];
+      const answer = state.answers[idx];
       let correct = false;
 
-      if (q.type === "mcq" && answer !== undefined) {
-        correct = Number(answer) === q.answer;
-      } else if (q.type === "tf" && answer !== undefined) {
-        correct = (answer === "true") === q.answerTF;
-      } else if (q.type === "short" && typeof answer === "string" && q.answerText) {
+      if (q.type === "mcq" && answer !== undefined && answer !== null) {
+        correct = Number(answer) === q.correctAnswer;
+      } else if (q.type === "tf" && answer !== undefined && answer !== null) {
+        correct = answer === q.correctAnswer;
+      } else if (q.type === "short" && typeof answer === "string" && Array.isArray(q.correctAnswer)) {
         const userAnswer = answer.toLowerCase().trim();
-        correct = q.answerText.some((expected) =>
+        // Check if at least 2 keywords match (or 1 if only 1-2 expected)
+        const matches = q.correctAnswer.filter((expected) =>
           userAnswer.includes(expected.toLowerCase())
         );
+        const requiredMatches = q.correctAnswer.length <= 2 ? 1 : 2;
+        correct = matches.length >= requiredMatches;
       }
 
       if (correct) score++;
       newResults[idx] = {
         correct,
-        explanation: q.explain,
+        explanation: q.explanation,
       };
     });
 
-    setResults(newResults);
-    setValidated(true);
+    setState((prev) => ({
+      ...prev,
+      results: newResults,
+      validated: true,
+      score,
+    }));
 
     const total = section.quiz.length;
-    const passed = onValidate(score, total);
+    const passed = onComplete(score, total);
+    const percentage = Math.round((score / total) * 100);
 
     setTipMessage(
       passed
-        ? `🎉 Validé ! Score ${score}/${total}. (>=70%)`
-        : `Encore un effort : ${score}/${total}. Objectif : 70%`
+        ? `🎉 Bravo ! Score : ${score}/${total} (${percentage}%) — Section validée !`
+        : `Score : ${score}/${total} (${percentage}%) — Objectif : 70% pour valider`
     );
   };
 
+  const handleReset = () => {
+    setState({
+      answers: {},
+      results: {},
+      validated: false,
+      score: 0,
+    });
+    setTipMessage("");
+  };
+
   const renderQuestion = (q: QuizQuestion, idx: number) => {
-    const result = results[idx];
+    const result = state.results[idx];
     const qKey = `${section.id}_q${idx}`;
 
     return (
       <div
         key={idx}
-        className="p-3 rounded-2xl border border-border/50 bg-white/[0.03] mb-3 animate-fade-in"
+        className={cn(
+          "p-4 rounded-xl border transition-all duration-200 mb-3",
+          result?.correct === true
+            ? "border-secondary/50 bg-secondary/5"
+            : result?.correct === false
+            ? "border-destructive/50 bg-destructive/5"
+            : "border-border/50 bg-card/50"
+        )}
       >
-        <p className="text-[13px] font-bold mb-3">
-          {idx + 1}. {q.q}
+        <p className="text-sm font-semibold mb-3 flex gap-2">
+          <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs flex-shrink-0">
+            {idx + 1}
+          </span>
+          <span>{q.question}</span>
         </p>
 
         {/* MCQ */}
         {q.type === "mcq" && q.choices && (
-          <div className="space-y-2">
+          <div className="space-y-2 ml-8">
             {q.choices.map((choice, i) => (
               <label
                 key={i}
                 className={cn(
-                  "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150",
-                  answers[idx] === i
+                  "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150",
+                  state.answers[idx] === i
                     ? "border-primary/50 bg-primary/10"
-                    : "border-border/50 bg-white/[0.02] hover:bg-white/[0.05]"
+                    : "border-border/30 bg-background/50 hover:bg-muted/30",
+                  state.validated && i === q.correctAnswer && "border-secondary bg-secondary/10",
+                  state.validated && state.answers[idx] === i && i !== q.correctAnswer && "border-destructive bg-destructive/10"
                 )}
               >
                 <input
                   type="radio"
                   name={qKey}
                   value={i}
-                  checked={answers[idx] === i}
+                  checked={state.answers[idx] === i}
                   onChange={() => handleAnswerChange(idx, i)}
                   className="mt-0.5 accent-primary"
-                  disabled={validated}
+                  disabled={state.validated}
                 />
                 <span className="text-sm">
-                  <strong>{String.fromCharCode(65 + i)}.</strong> {choice}
+                  <strong className="text-muted-foreground">{String.fromCharCode(65 + i)}.</strong> {choice}
                 </span>
               </label>
             ))}
@@ -129,29 +165,32 @@ export function QuizSection({ section, onValidate }: QuizSectionProps) {
 
         {/* True/False */}
         {q.type === "tf" && (
-          <div className="space-y-2">
-            {["true", "false"].map((val) => (
+          <div className="space-y-2 ml-8">
+            {[
+              { value: true, label: "Vrai" },
+              { value: false, label: "Faux" },
+            ].map((opt) => (
               <label
-                key={val}
+                key={String(opt.value)}
                 className={cn(
-                  "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150",
-                  answers[idx] === val
+                  "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150",
+                  state.answers[idx] === opt.value
                     ? "border-primary/50 bg-primary/10"
-                    : "border-border/50 bg-white/[0.02] hover:bg-white/[0.05]"
+                    : "border-border/30 bg-background/50 hover:bg-muted/30",
+                  state.validated && opt.value === q.correctAnswer && "border-secondary bg-secondary/10",
+                  state.validated && state.answers[idx] === opt.value && opt.value !== q.correctAnswer && "border-destructive bg-destructive/10"
                 )}
               >
                 <input
                   type="radio"
                   name={qKey}
-                  value={val}
-                  checked={answers[idx] === val}
-                  onChange={() => handleAnswerChange(idx, val)}
+                  value={String(opt.value)}
+                  checked={state.answers[idx] === opt.value}
+                  onChange={() => handleAnswerChange(idx, opt.value)}
                   className="mt-0.5 accent-primary"
-                  disabled={validated}
+                  disabled={state.validated}
                 />
-                <span className="text-sm font-medium">
-                  {val === "true" ? "Vrai" : "Faux"}
-                </span>
+                <span className="text-sm font-medium">{opt.label}</span>
               </label>
             ))}
           </div>
@@ -159,17 +198,17 @@ export function QuizSection({ section, onValidate }: QuizSectionProps) {
 
         {/* Short answer */}
         {q.type === "short" && (
-          <div>
+          <div className="ml-8">
             <input
               type="text"
               placeholder="Écris ta réponse ici..."
-              value={(answers[idx] as string) || ""}
+              value={(state.answers[idx] as string) || ""}
               onChange={(e) => handleAnswerChange(idx, e.target.value)}
-              disabled={validated}
-              className="w-full p-3 rounded-xl border border-border/50 bg-white/[0.04] text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors text-sm"
+              disabled={state.validated}
+              className="w-full p-3 rounded-lg border border-border/50 bg-background/50 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors text-sm"
             />
-            <p className="text-xs text-muted-foreground mt-2">
-              Astuce : mots clés attendus (pas besoin de phrase parfaite).
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              💡 Utilise les mots-clés importants (pas besoin d'une phrase parfaite)
             </p>
           </div>
         )}
@@ -178,10 +217,10 @@ export function QuizSection({ section, onValidate }: QuizSectionProps) {
         {result && (
           <div
             className={cn(
-              "mt-3 p-3 rounded-xl border text-sm flex items-start gap-2",
+              "mt-3 ml-8 p-3 rounded-lg text-sm flex items-start gap-2",
               result.correct
-                ? "bg-secondary/10 border-secondary/30"
-                : "bg-destructive/10 border-destructive/30"
+                ? "bg-secondary/10 text-secondary-foreground"
+                : "bg-destructive/10 text-destructive-foreground"
             )}
           >
             {result.correct ? (
@@ -189,9 +228,7 @@ export function QuizSection({ section, onValidate }: QuizSectionProps) {
             ) : (
               <XCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
             )}
-            <span>
-              {result.correct ? "✅ Correct." : "❌ Faux."} {result.explanation}
-            </span>
+            <span>{result.explanation}</span>
           </div>
         )}
       </div>
@@ -200,29 +237,54 @@ export function QuizSection({ section, onValidate }: QuizSectionProps) {
 
   return (
     <div>
-      {section.quiz.map((q, idx) => renderQuestion(q, idx))}
-
-      <button
-        onClick={handleValidate}
-        disabled={validated}
-        className={cn(
-          "w-full py-3 px-4 rounded-2xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-150",
-          validated
-            ? "bg-muted text-muted-foreground cursor-not-allowed"
-            : "bg-gradient-to-r from-secondary/20 to-primary/10 border border-secondary/40 text-foreground hover:-translate-y-0.5"
-        )}
-      >
-        <CheckCircle2 className="w-4 h-4" />
-        {validated ? "Quiz validé" : "Valider le quiz"}
-      </button>
-
-      {tipMessage && (
-        <p className="text-xs text-muted-foreground mt-3 text-center">{tipMessage}</p>
+      {/* Previous score info */}
+      {previousScore && previousScore.attempts > 0 && (
+        <div className="mb-4 p-3 rounded-xl bg-muted/30 border border-border/30 flex items-center gap-3">
+          <Trophy className="w-5 h-5 text-amber-500" />
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground">Meilleur score</p>
+            <p className="text-sm font-bold">{previousScore.bestScore}/{section.quiz.length}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">Tentatives</p>
+            <p className="text-sm font-bold">{previousScore.attempts}</p>
+          </div>
+        </div>
       )}
 
-      {!validated && (
-        <p className="text-xs text-muted-foreground mt-3 text-center">
-          Tu peux refaire le quiz autant de fois que tu veux.
+      {/* Questions */}
+      {section.quiz.map((q, idx) => renderQuestion(q, idx))}
+
+      {/* Action buttons */}
+      <div className="flex gap-2 mt-4">
+        {!state.validated ? (
+          <button
+            onClick={handleValidate}
+            className="flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-secondary/20 to-primary/10 border border-secondary/40 text-foreground hover:-translate-y-0.5 transition-all duration-150"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Valider mes réponses
+          </button>
+        ) : (
+          <button
+            onClick={handleReset}
+            className="flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 bg-muted/50 border border-border/50 text-foreground hover:-translate-y-0.5 transition-all duration-150"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Recommencer
+          </button>
+        )}
+      </div>
+
+      {/* Result message */}
+      {tipMessage && (
+        <p className={cn(
+          "text-sm mt-3 text-center p-3 rounded-xl",
+          state.score / section.quiz.length >= 0.7
+            ? "bg-secondary/10 text-secondary"
+            : "bg-muted text-muted-foreground"
+        )}>
+          {tipMessage}
         </p>
       )}
     </div>
