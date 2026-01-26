@@ -5,7 +5,7 @@ type Theme = "light" | "dark";
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     // Check localStorage first
-    const saved = localStorage.getItem("studylaw-theme") as Theme | null;
+    const saved = localStorage.getItem("pandora-theme") as Theme | null;
     if (saved) return saved;
     
     // Then check system preference
@@ -25,7 +25,7 @@ export function useTheme() {
       root.classList.remove("dark");
     }
     
-    localStorage.setItem("studylaw-theme", theme);
+    localStorage.setItem("pandora-theme", theme);
   }, [theme]);
 
   const toggleTheme = () => {

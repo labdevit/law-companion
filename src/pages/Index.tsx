@@ -71,10 +71,10 @@ const Index = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-black text-white shadow-lg">
-                  SL
+                  P
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">StudyLaw</h1>
+                  <h1 className="text-xl font-bold">Pandora</h1>
                   <p className="text-sm text-muted-foreground">Révise efficacement avec des cours structurés et des quiz</p>
                 </div>
               </div>
