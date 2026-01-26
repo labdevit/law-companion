@@ -1,23 +1,35 @@
 import { useState, useEffect, useCallback } from "react";
 
 interface SectionProgress {
-  best: number;
-  last: number;
-  done: boolean;
-  updatedAt: string;
+  score: number;
+  total: number;
+  bestScore: number;
+  attempts: number;
+  completed: boolean;
+  lastAttempt: string;
 }
 
-interface StudyProgress {
+interface CourseProgress {
   [sectionId: string]: SectionProgress;
 }
 
-const STORAGE_KEY_PROGRESS = "sl_progress";
-const STORAGE_KEY_FAVORITES = "sl_favs";
+interface StudyStats {
+  totalScore: number;
+  totalQuestions: number;
+  sectionsCompleted: number;
+  totalSections: number;
+  coursesStarted: string[];
+  streak: number;
+  lastStudyDate: string;
+}
+
+const STORAGE_KEY = "studylaw_progress";
+const FAVORITES_KEY = "studylaw_favorites";
 
 export function useStudyProgress() {
-  const [progress, setProgress] = useState<StudyProgress>(() => {
+  const [progress, setProgress] = useState<CourseProgress>(() => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY_PROGRESS) || "{}");
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     } catch {
       return {};
     }
@@ -25,7 +37,7 @@ export function useStudyProgress() {
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
-      return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY_FAVORITES) || "[]"));
+      return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]"));
     } catch {
       return new Set();
     }
@@ -33,26 +45,35 @@ export function useStudyProgress() {
 
   // Persist progress
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progress));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   }, [progress]);
 
   // Persist favorites
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_FAVORITES, JSON.stringify([...favorites]));
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
   }, [favorites]);
 
-  const updateSectionProgress = useCallback((sectionId: string, score: number, total: number) => {
-    const passed = total > 0 ? score / total >= 0.7 : true;
+  const updateSectionProgress = useCallback((
+    sectionId: string, 
+    score: number, 
+    total: number
+  ): boolean => {
+    const passed = total > 0 ? score / total >= 0.7 : false;
     
-    setProgress((prev) => ({
-      ...prev,
-      [sectionId]: {
-        best: Math.max(prev[sectionId]?.best || 0, score),
-        last: score,
-        done: passed,
-        updatedAt: new Date().toISOString(),
-      },
-    }));
+    setProgress((prev) => {
+      const existing = prev[sectionId];
+      return {
+        ...prev,
+        [sectionId]: {
+          score,
+          total,
+          bestScore: Math.max(existing?.bestScore || 0, score),
+          attempts: (existing?.attempts || 0) + 1,
+          completed: passed || existing?.completed || false,
+          lastAttempt: new Date().toISOString(),
+        },
+      };
+    });
 
     return passed;
   }, []);
@@ -77,17 +98,39 @@ export function useStudyProgress() {
     return progress[sectionId];
   }, [progress]);
 
-  const getTotalScore = useCallback(() => {
-    return Object.values(progress).reduce((sum, p) => sum + (p.best || 0), 0);
+  const getStats = useCallback((): StudyStats => {
+    const sections = Object.values(progress);
+    const totalScore = sections.reduce((sum, p) => sum + (p.bestScore || 0), 0);
+    const totalQuestions = sections.reduce((sum, p) => sum + (p.total || 0), 0);
+    const sectionsCompleted = sections.filter(p => p.completed).length;
+    
+    return {
+      totalScore,
+      totalQuestions,
+      sectionsCompleted,
+      totalSections: sections.length,
+      coursesStarted: [],
+      streak: 0,
+      lastStudyDate: new Date().toISOString(),
+    };
   }, [progress]);
 
-  const getCompletedCount = useCallback(() => {
-    return Object.values(progress).filter((p) => p.done).length;
+  const getProgressPercentage = useCallback((courseId: string, sectionIds: string[]) => {
+    const completed = sectionIds.filter(id => progress[id]?.completed).length;
+    return sectionIds.length > 0 ? Math.round((completed / sectionIds.length) * 100) : 0;
   }, [progress]);
 
   const resetProgress = useCallback(() => {
     setProgress({});
     setFavorites(new Set());
+  }, []);
+
+  const resetSectionProgress = useCallback((sectionId: string) => {
+    setProgress((prev) => {
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
   }, []);
 
   return {
@@ -97,8 +140,9 @@ export function useStudyProgress() {
     toggleFavorite,
     isFavorite,
     getSectionProgress,
-    getTotalScore,
-    getCompletedCount,
+    getStats,
+    getProgressPercentage,
     resetProgress,
+    resetSectionProgress,
   };
 }
