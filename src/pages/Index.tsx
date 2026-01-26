@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { Brain, Sparkles, RotateCcw, BookOpen, HelpCircle, Menu, X, Home } from "lucide-react";
-import { COURSES, Course, Section, getAllSections } from "@/data/courses";
+import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon } from "lucide-react";
+import { COURSES, getAllSections } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
+import { useTheme } from "@/hooks/useTheme";
 import { CourseCard } from "@/components/CourseCard";
 import { ChapterNav } from "@/components/ChapterNav";
 import { CourseContent } from "@/components/CourseContent";
@@ -14,6 +15,7 @@ const Index = () => {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [highlightsEnabled, setHighlightsEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   const {
     updateSectionProgress,
@@ -66,14 +68,23 @@ const Index = () => {
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <header className="mb-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-black text-white shadow-lg">
-                SL
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center font-black text-white shadow-lg">
+                  SL
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold">StudyLaw</h1>
+                  <p className="text-sm text-muted-foreground">Révise efficacement avec des cours structurés et des quiz</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold">StudyLaw</h1>
-                <p className="text-sm text-muted-foreground">Révise efficacement avec des cours structurés et des quiz</p>
-              </div>
+              <button
+                onClick={toggleTheme}
+                className="p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
             </div>
 
             <StatsDisplay
@@ -191,6 +202,13 @@ const Index = () => {
             >
               <Sparkles className="w-4 h-4" />
               Surlignage {highlightsEnabled ? "ON" : "OFF"}
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
           </div>
         </header>
