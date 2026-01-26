@@ -1799,6 +1799,544 @@ export const COURSES: Course[] = [
         ]
       }
     ]
+  },
+  // ═══════════════════════════════════════════════════════════════════
+  // DROIT DU TRAVAIL
+  // ═══════════════════════════════════════════════════════════════════
+  {
+    id: "travail",
+    title: "Droit du Travail",
+    icon: "👷",
+    color: "from-amber-500 to-orange-600",
+    chapters: [
+      {
+        id: "travail_ch1",
+        title: "Le Contrat de Travail",
+        sections: [
+          {
+            id: "travail_ch1_s1",
+            title: "Types et durée des contrats",
+            content: `
+              <p>Le droit du travail distingue plusieurs types de contrats :</p>
+              <h4>Contrat à Durée Déterminée (CDD)</h4>
+              <p>Le <span class="hl">CDD</span> et le <span class="hl">contrat de travail temporaire</span> ont une durée en principe de <span class="hlg">deux ans</span> maximum.</p>
+              <h4>Contrat à Durée Indéterminée (CDI)</h4>
+              <p>Le <span class="hl">CDI</span> peut toujours cesser par la <span class="hlg">volonté de l'une des parties</span> ou par l'accord des deux parties.</p>
+              <h4>Contrat d'engagement à l'essai</h4>
+              <p>Le contrat d'engagement à l'essai peut, à tout moment, cesser <span class="hlo">sans préavis et sans indemnité</span> par la volonté de l'une des parties, sauf dispositions particulières expressément prévues au contrat.</p>
+              <h4>Formalités du CDD de deux ans</h4>
+              <p>L'<span class="hl">écrit</span> contenant certaines mentions (nature, durée) est obligatoire pour la validité de tous les contrats particuliers et des contrats nécessitant l'installation du salarié hors de sa résidence habituelle.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quelle est la durée maximum du CDD et du contrat de travail temporaire ?",
+                choices: [
+                  "1 an",
+                  "2 ans",
+                  "3 ans",
+                  "6 mois"
+                ],
+                correctAnswer: 1,
+                explanation: "Le CDD et le contrat de travail temporaire ont une durée en principe de deux ans maximum."
+              },
+              {
+                type: "tf",
+                question: "Le contrat d'engagement à l'essai nécessite un préavis pour être rompu.",
+                correctAnswer: false,
+                explanation: "Faux. Le contrat d'engagement à l'essai peut cesser sans préavis et sans indemnité."
+              },
+              {
+                type: "short",
+                question: "Quels contrats ont une durée maximum de deux ans ?",
+                correctAnswer: ["CDD", "contrat durée déterminée", "travail temporaire", "intérim"],
+                explanation: "Le CDD et le contrat de travail temporaire ont une durée de deux ans maximum."
+              }
+            ]
+          },
+          {
+            id: "travail_ch1_s2",
+            title: "Modification du contrat de travail",
+            content: `
+              <p>Le contrat de travail peut subir différentes modifications :</p>
+              <h4>Modification dans la situation juridique</h4>
+              <p>Elle consiste à <span class="hl">transférer l'activité et les moyens matériels</span> de l'entreprise (ex: rachat d'entreprise).</p>
+              <h4>Modification substantielle</h4>
+              <p>Elle porte sur les <span class="hlg">éléments essentiels</span> du contrat (salaire, fonction, lieu de travail). Elle nécessite l'<span class="hlo">accord du salarié</span>.</p>
+              <h4>Modification non substantielle</h4>
+              <p>Elle porte sur les <span class="hlg">éléments non essentiels</span> du contrat et peut être imposée par l'employeur.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "La modification substantielle porte sur :",
+                choices: [
+                  "Les éléments non essentiels",
+                  "Les éléments essentiels",
+                  "Le transfert d'entreprise",
+                  "Le règlement intérieur"
+                ],
+                correctAnswer: 1,
+                explanation: "La modification substantielle porte sur les éléments essentiels du contrat."
+              },
+              {
+                type: "tf",
+                question: "Le transfert d'activité et de moyens matériels est une modification dans la situation juridique.",
+                correctAnswer: true,
+                explanation: "Vrai. C'est la définition de la modification dans la situation juridique."
+              },
+              {
+                type: "short",
+                question: "Quel type de modification porte sur les éléments essentiels du contrat ?",
+                correctAnswer: ["modification substantielle", "substantielle"],
+                explanation: "La modification substantielle porte sur les éléments essentiels (salaire, fonction, lieu)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "travail_ch2",
+        title: "Obligations des Parties",
+        sections: [
+          {
+            id: "travail_ch2_s1",
+            title: "Obligations du travailleur",
+            content: `
+              <h4>Obligation principale</h4>
+              <p>L'obligation principale du travailleur est l'<span class="hl">exécution personnelle, consciencieuse et loyale</span> du travail prévu au contrat.</p>
+              <h4>Horaires de travail</h4>
+              <ul>
+                <li><span class="hlg">Travail de jour</span> : entre 5h et 22h</li>
+                <li><span class="hlg">Travail de nuit</span> : entre 22h et 5h</li>
+              </ul>
+              <h4>Obligations facultatives (clauses)</h4>
+              <p>Le contrat peut imposer des clauses particulières :</p>
+              <ul>
+                <li><span class="hl">Clause de non-concurrence</span> : ne pas concurrencer l'employeur après la rupture</li>
+                <li><span class="hl">Clause de dédit-formation</span> : ne pas quitter après une formation aux frais de l'entreprise</li>
+                <li><span class="hl">Clause de mobilité</span> : accepter d'être déplacé ou muté</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Le travail de nuit s'effectue entre :",
+                choices: [
+                  "20h et 6h",
+                  "22h et 5h",
+                  "21h et 6h",
+                  "23h et 5h"
+                ],
+                correctAnswer: 1,
+                explanation: "Le travail de nuit s'effectue entre 22 heures et 5 heures."
+              },
+              {
+                type: "tf",
+                question: "La clause de non-concurrence interdit de concurrencer l'employeur après la rupture du contrat.",
+                correctAnswer: true,
+                explanation: "Vrai. La clause de non-concurrence empêche le salarié de concurrencer son ancien employeur."
+              },
+              {
+                type: "short",
+                question: "Quelle est l'obligation principale du travailleur ?",
+                correctAnswer: ["exécution", "travail", "personnelle", "consciencieuse", "loyale"],
+                explanation: "L'obligation principale est l'exécution personnelle, consciencieuse et loyale du travail."
+              }
+            ]
+          },
+          {
+            id: "travail_ch2_s2",
+            title: "Obligations de l'employeur",
+            content: `
+              <h4>Obligation principale</h4>
+              <p>L'obligation principale de l'employeur est le <span class="hl">paiement de la rémunération</span> prévue au contrat conformément à la loi.</p>
+              <h4>Composantes de la rémunération</h4>
+              <p>La rémunération comprend :</p>
+              <ul>
+                <li>Le <span class="hlg">salaire de base</span></li>
+                <li>Les <span class="hlg">compléments</span> et <span class="hlg">indemnités inhérentes</span> au travail (indemnité de responsabilité, de fonction)</li>
+              </ul>
+              <p><span class="hlo">Ne sont pas inclus</span> : les remboursements de frais (transport, panier, déplacement) et les sommes insaisissables (prélèvements obligatoires, prestations sociales).</p>
+              <h4>Rémunération brute vs nette</h4>
+              <ul>
+                <li><span class="hl">Brute</span> : avant prélèvement des cotisations et impôts</li>
+                <li><span class="hl">Nette</span> : après prélèvement des cotisations et impôts</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "L'obligation principale de l'employeur est :",
+                choices: [
+                  "Former le salarié",
+                  "Le paiement de la rémunération",
+                  "Fournir un logement",
+                  "Assurer la sécurité"
+                ],
+                correctAnswer: 1,
+                explanation: "L'obligation principale de l'employeur est le paiement de la rémunération."
+              },
+              {
+                type: "tf",
+                question: "L'indemnité de transport fait partie de la rémunération cessible et saisissable.",
+                correctAnswer: false,
+                explanation: "Faux. L'indemnité de transport est un remboursement de frais, non inclus dans la rémunération cessible."
+              },
+              {
+                type: "short",
+                question: "Quelle est la différence entre rémunération brute et nette ?",
+                correctAnswer: ["cotisations", "impôts", "prélèvements", "avant", "après"],
+                explanation: "Brute = avant prélèvements, Nette = après prélèvements des cotisations et impôts."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "travail_ch3",
+        title: "Durée du Travail et Repos",
+        sections: [
+          {
+            id: "travail_ch3_s1",
+            title: "Durée légale du travail",
+            content: `
+              <h4>Durée maximum</h4>
+              <p>Le temps de travail ne peut en principe excéder :</p>
+              <ul>
+                <li><span class="hl">40 heures par semaine</span> (35h en France)</li>
+                <li><span class="hl">173 heures 33 par mois</span></li>
+                <li><span class="hl">2352 heures par an</span> dans les établissements agricoles</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "La durée maximum du travail par semaine est de :",
+                choices: [
+                  "35 heures",
+                  "40 heures",
+                  "45 heures",
+                  "48 heures"
+                ],
+                correctAnswer: 1,
+                explanation: "Le temps de travail ne peut excéder 40 heures par semaine au Sénégal."
+              },
+              {
+                type: "tf",
+                question: "La durée maximum mensuelle du travail est de 173 heures 33.",
+                correctAnswer: true,
+                explanation: "Vrai. C'est l'équivalent mensuel des 40 heures hebdomadaires."
+              }
+            ]
+          },
+          {
+            id: "travail_ch3_s2",
+            title: "Congés payés",
+            content: `
+              <h4>Période de référence</h4>
+              <p>Le congé payé est le repos que le travailleur peut prendre après une période minimale de <span class="hl">12 mois de service effectif</span> (période de référence).</p>
+              <h4>Durée minimum</h4>
+              <p>Le congé a une durée minimum de <span class="hlg">2 jours ouvrables par mois</span>, soit <span class="hl">24 jours ouvrables par an</span>.</p>
+              <p>Pour les travailleurs recrutés à l'étranger : <span class="hlo">5 jours ouvrables par mois</span>.</p>
+              <h4>Majorations</h4>
+              <p>Le congé peut être majoré pour :</p>
+              <ul>
+                <li>Ancienneté</li>
+                <li>Enfant à charge (femme salariée)</li>
+                <li>Minorité</li>
+                <li>Logement à proximité (concierge)</li>
+              </ul>
+              <h4>Report du congé</h4>
+              <p>Le congé peut être reporté d'un commun accord <span class="hl">sans excéder 3 ans</span>, avec un minimum de 6 jours ouvrables par an.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "La durée minimum du congé payé annuel est de :",
+                choices: [
+                  "12 jours ouvrables",
+                  "24 jours ouvrables",
+                  "30 jours ouvrables",
+                  "2 semaines"
+                ],
+                correctAnswer: 1,
+                explanation: "La durée minimum est de 2 jours par mois soit 24 jours ouvrables par an."
+              },
+              {
+                type: "tf",
+                question: "Le congé payé peut être reporté jusqu'à 5 ans.",
+                correctAnswer: false,
+                explanation: "Faux. Le report ne peut excéder 3 ans."
+              },
+              {
+                type: "short",
+                question: "Quelle est la période de référence pour avoir droit au congé payé ?",
+                correctAnswer: ["12 mois", "un an", "1 an", "douze mois"],
+                explanation: "Le congé est acquis après 12 mois de service effectif (période de référence)."
+              }
+            ]
+          },
+          {
+            id: "travail_ch3_s3",
+            title: "Types de repos et suspensions",
+            content: `
+              <h4>Types de repos</h4>
+              <ul>
+                <li><span class="hl">Repos journalier/quotidien</span> : après une journée de travail</li>
+                <li><span class="hl">Repos hebdomadaire</span> : obligatoire, après une semaine de travail</li>
+              </ul>
+              <h4>Suspensions du contrat</h4>
+              <ul>
+                <li><span class="hlg">Congé de maternité</span> : après l'accouchement</li>
+                <li><span class="hlg">Suspension occasionnelle</span> : en cas de maladie ou d'accident</li>
+              </ul>
+              <h4>Jours fériés</h4>
+              <p><span class="hl">Jours chômés et payés</span> : Tabaski, Pâques, 1er Mai, Tamxarit</p>
+              <p><span class="hlo">Jours simplement chômés</span> : 1er janvier, 15 août</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Le 1er Mai est un jour :",
+                choices: [
+                  "Travaillé normalement",
+                  "Chômé uniquement",
+                  "Chômé et payé",
+                  "Non férié"
+                ],
+                correctAnswer: 2,
+                explanation: "Le 1er Mai est un jour chômé ET payé."
+              },
+              {
+                type: "tf",
+                question: "Le 1er janvier est un jour chômé et payé.",
+                correctAnswer: false,
+                explanation: "Faux. Le 1er janvier est simplement chômé, pas payé."
+              },
+              {
+                type: "short",
+                question: "Quel type de suspension intervient en cas de maladie ou accident ?",
+                correctAnswer: ["suspension occasionnelle", "occasionnelle", "maladie", "accident"],
+                explanation: "En cas de maladie ou accident, c'est une suspension occasionnelle du contrat."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "travail_ch4",
+        title: "Rupture du Contrat de Travail",
+        sections: [
+          {
+            id: "travail_ch4_s1",
+            title: "Modes de rupture du CDI",
+            content: `
+              <h4>Démission</h4>
+              <p>Rupture du CDI décidée par le <span class="hl">travailleur</span> de manière libre, claire et unilatérale.</p>
+              <h4>Licenciement</h4>
+              <p>Rupture à l'initiative de l'<span class="hl">employeur</span>. Peut être pour faute ou pour motif économique.</p>
+              <h4>Retraite</h4>
+              <p>Rupture du contrat du travailleur âgé en principe de <span class="hlg">60 ans</span>.</p>
+              <h4>Indemnités de rupture</h4>
+              <ul>
+                <li><span class="hl">Indemnité compensatrice de préavis</span> : due normalement par l'employeur</li>
+                <li><span class="hl">Indemnité de licenciement</span> : après 12 mois d'ancienneté minimum</li>
+                <li><span class="hl">Indemnité de retraite</span> : à 60 ans</li>
+                <li><span class="hl">Indemnité spéciale</span> : pour motif économique</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "La démission est une rupture du contrat à l'initiative :",
+                choices: [
+                  "De l'employeur",
+                  "Du travailleur",
+                  "Du juge",
+                  "De l'inspecteur du travail"
+                ],
+                correctAnswer: 1,
+                explanation: "La démission est la rupture décidée par le travailleur."
+              },
+              {
+                type: "tf",
+                question: "L'indemnité de licenciement est due après 6 mois d'ancienneté.",
+                correctAnswer: false,
+                explanation: "Faux. L'indemnité de licenciement est due après 12 mois d'ancienneté."
+              },
+              {
+                type: "short",
+                question: "À quel âge intervient en principe la retraite ?",
+                correctAnswer: ["60 ans", "soixante", "60"],
+                explanation: "La retraite intervient en principe à 60 ans."
+              }
+            ]
+          },
+          {
+            id: "travail_ch4_s2",
+            title: "Protection de la femme enceinte",
+            content: `
+              <h4>Droits de la femme enceinte</h4>
+              <ul>
+                <li>Elle peut <span class="hl">démissionner sans préavis</span> et sans indemnité durant la grossesse et le repos d'allaitement</li>
+                <li>Elle <span class="hlg">ne peut pas être licenciée</span> pendant le congé de maternité</li>
+                <li>Elle a droit à des <span class="hl">indemnités</span></li>
+              </ul>
+              <div class="callout"><b>Important :</b> La protection contre le licenciement s'applique pendant la période de suspension légale (congé de maternité). Le licenciement n'est possible qu'<span class="hlo">après cette période</span>.</div>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "La femme enceinte peut-elle démissionner sans préavis ?",
+                choices: [
+                  "Non, jamais",
+                  "Oui, pendant la grossesse et le repos d'allaitement",
+                  "Oui, mais avec indemnité",
+                  "Uniquement après l'accouchement"
+                ],
+                correctAnswer: 1,
+                explanation: "La femme enceinte peut démissionner sans préavis pendant la grossesse et le repos d'allaitement."
+              },
+              {
+                type: "tf",
+                question: "La femme enceinte peut être licenciée pendant son congé de maternité.",
+                correctAnswer: false,
+                explanation: "Faux. Elle ne peut pas être licenciée pendant le congé de maternité."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "travail_ch5",
+        title: "Représentation du Personnel",
+        sections: [
+          {
+            id: "travail_ch5_s1",
+            title: "Délégué du personnel",
+            content: `
+              <h4>Élection obligatoire</h4>
+              <p>L'élection du délégué du personnel est obligatoire dans les entreprises de <span class="hl">plus de 10 travailleurs</span>.</p>
+              <h4>Rôles du délégué</h4>
+              <ul>
+                <li><span class="hlg">Présenter les réclamations</span> des travailleurs</li>
+                <li><span class="hlg">Contrôler l'application</span> du droit du travail</li>
+                <li><span class="hlg">Émettre des avis consultatifs</span></li>
+              </ul>
+              <h4>Protection du délégué</h4>
+              <p>Le délégué licencié <span class="hlo">sans autorisation de l'inspecteur du travail</span> peut demander réparation auprès du <span class="hl">Ministre du travail</span> ou de la <span class="hl">Cour suprême</span>.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "L'élection du délégué du personnel est obligatoire à partir de :",
+                choices: [
+                  "5 travailleurs",
+                  "10 travailleurs",
+                  "Plus de 10 travailleurs",
+                  "20 travailleurs"
+                ],
+                correctAnswer: 2,
+                explanation: "L'élection est obligatoire dans les entreprises de plus de 10 travailleurs."
+              },
+              {
+                type: "tf",
+                question: "Le délégué du personnel présente les revendications des travailleurs.",
+                correctAnswer: false,
+                explanation: "Faux. Le délégué présente les RÉCLAMATIONS. Les REVENDICATIONS sont présentées par le syndicat."
+              },
+              {
+                type: "short",
+                question: "Qui peut présenter les réclamations des travailleurs ?",
+                correctAnswer: ["délégué", "délégué du personnel"],
+                explanation: "C'est le délégué du personnel qui présente les réclamations."
+              }
+            ]
+          },
+          {
+            id: "travail_ch5_s2",
+            title: "Syndicat et chef d'entreprise",
+            content: `
+              <h4>Rôles du syndicat</h4>
+              <ul>
+                <li><span class="hlg">Présenter les revendications</span> des travailleurs</li>
+                <li><span class="hlg">Défendre les travailleurs</span> devant les juridictions</li>
+              </ul>
+              <p>Le syndicat peut être constitué <span class="hl">librement et sans autorisation</span> par les travailleurs.</p>
+              <h4>Rôles du chef d'entreprise</h4>
+              <ul>
+                <li><span class="hlg">Prendre des décisions</span> sur le matériel et les personnels</li>
+                <li><span class="hlg">Élaborer des règles</span> générales et obligatoires (règlement intérieur)</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Qui défend les travailleurs devant les juridictions ?",
+                choices: [
+                  "Le délégué du personnel",
+                  "Le syndicat",
+                  "Le chef d'entreprise",
+                  "L'inspecteur du travail"
+                ],
+                correctAnswer: 1,
+                explanation: "Le syndicat défend les travailleurs devant les juridictions."
+              },
+              {
+                type: "tf",
+                question: "La constitution d'un syndicat nécessite une autorisation préalable.",
+                correctAnswer: false,
+                explanation: "Faux. Le syndicat peut être constitué librement et sans autorisation."
+              },
+              {
+                type: "short",
+                question: "Quelle est la différence entre réclamation et revendication ?",
+                correctAnswer: ["délégué", "syndicat", "réclamation", "revendication"],
+                explanation: "Réclamations = délégué du personnel. Revendications = syndicat."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "travail_ch6",
+        title: "Contentieux du Travail",
+        sections: [
+          {
+            id: "travail_ch6_s1",
+            title: "Tribunal du travail",
+            content: `
+              <h4>Compétence</h4>
+              <p>Les <span class="hl">tribunaux du travail</span> sont exclusivement compétents pour connaître en première instance des différends individuels de travail.</p>
+              <h4>Compétence territoriale</h4>
+              <p>Le tribunal territorialement compétent est en principe celui du <span class="hlg">lieu d'exécution du travail</span>.</p>
+              <div class="callout"><b>Exemple :</b> Un travailleur habitué à Thiès, employeur à Tambacounda, contrat conclu à Dakar et exécuté à Saint-Louis → Tribunal de <span class="hl">Saint-Louis</span> (lieu d'exécution).</div>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Le tribunal du travail compétent est celui du lieu :",
+                choices: [
+                  "Du domicile du travailleur",
+                  "Du siège de l'employeur",
+                  "D'exécution du travail",
+                  "De conclusion du contrat"
+                ],
+                correctAnswer: 2,
+                explanation: "Le tribunal compétent est celui du lieu d'exécution du travail."
+              },
+              {
+                type: "tf",
+                question: "Les litiges individuels du travail relèvent des tribunaux de grande instance.",
+                correctAnswer: false,
+                explanation: "Faux. Ils relèvent exclusivement des tribunaux du travail."
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 ];
 
