@@ -1,6 +1,6 @@
 import { Chapter, Section } from "@/data/courses";
 import { cn } from "@/lib/utils";
-import { ChevronDown, CheckCircle2, Star, BookOpen, HelpCircle } from "lucide-react";
+import { ChevronDown, CheckCircle2, Star, BookOpen, Circle } from "lucide-react";
 import { useState } from "react";
 
 interface ChapterNavProps {
@@ -10,6 +10,7 @@ interface ChapterNavProps {
   getSectionProgress: (sectionId: string) => { completed: boolean; bestScore: number; total: number } | undefined;
   isFavorite: (sectionId: string) => boolean;
   onToggleFavorite: (sectionId: string) => void;
+  onMarkComplete: (sectionId: string) => void;
 }
 
 export function ChapterNav({
@@ -19,6 +20,7 @@ export function ChapterNav({
   getSectionProgress,
   isFavorite,
   onToggleFavorite,
+  onMarkComplete,
 }: ChapterNavProps) {
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(() => {
     // Auto-expand chapter containing active section
@@ -91,14 +93,23 @@ export function ChapterNav({
                       )}
                       onClick={() => onSelectSection(section.id)}
                     >
-                      {/* Status icon */}
-                      <div className="w-5 h-5 flex items-center justify-center">
+                      {/* Status icon - clickable to mark complete */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!progress?.completed) {
+                            onMarkComplete(section.id);
+                          }
+                        }}
+                        className="w-5 h-5 flex items-center justify-center"
+                        title={progress?.completed ? "Terminé" : "Marquer comme terminé"}
+                      >
                         {progress?.completed ? (
                           <CheckCircle2 className="w-4 h-4 text-secondary" />
                         ) : (
-                          <BookOpen className="w-4 h-4 text-muted-foreground" />
+                          <Circle className="w-4 h-4 text-muted-foreground hover:text-secondary transition-colors" />
                         )}
-                      </div>
+                      </button>
 
                       {/* Section title */}
                       <span className={cn(

@@ -133,6 +133,23 @@ export function useStudyProgress() {
     });
   }, []);
 
+  const markSectionComplete = useCallback((sectionId: string, total: number = 1) => {
+    setProgress((prev) => {
+      const existing = prev[sectionId];
+      return {
+        ...prev,
+        [sectionId]: {
+          score: existing?.score || total,
+          total,
+          bestScore: existing?.bestScore || total,
+          attempts: existing?.attempts || 0,
+          completed: true,
+          lastAttempt: new Date().toISOString(),
+        },
+      };
+    });
+  }, []);
+
   return {
     progress,
     favorites,
@@ -144,5 +161,6 @@ export function useStudyProgress() {
     getProgressPercentage,
     resetProgress,
     resetSectionProgress,
+    markSectionComplete,
   };
 }
