@@ -98,7 +98,7 @@ export function useStudyProgress() {
     return progress[sectionId];
   }, [progress]);
 
-  const getStats = useCallback((): StudyStats => {
+  const getStats = useCallback((totalSectionsCount?: number): StudyStats => {
     const sections = Object.values(progress);
     const totalScore = sections.reduce((sum, p) => sum + (p.bestScore || 0), 0);
     const totalQuestions = sections.reduce((sum, p) => sum + (p.total || 0), 0);
@@ -108,7 +108,7 @@ export function useStudyProgress() {
       totalScore,
       totalQuestions,
       sectionsCompleted,
-      totalSections: sections.length,
+      totalSections: totalSectionsCount ?? sections.length,
       coursesStarted: [],
       streak: 0,
       lastStudyDate: new Date().toISOString(),

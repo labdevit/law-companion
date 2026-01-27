@@ -39,7 +39,12 @@ const Index = () => {
     return getAllSections(activeCourse).find((s) => s.id === activeSectionId) || null;
   }, [activeCourse, activeSectionId]);
 
-  const stats = getStats();
+  // Calculate total sections across all courses
+  const allCourseSections = useMemo(() => {
+    return COURSES.flatMap(course => getAllSections(course));
+  }, []);
+
+  const stats = getStats(allCourseSections.length);
 
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
