@@ -133,20 +133,34 @@ export function useStudyProgress() {
     });
   }, []);
 
-  const markSectionComplete = useCallback((sectionId: string, total: number = 1) => {
+  const toggleSectionComplete = useCallback((sectionId: string, total: number = 1) => {
     setProgress((prev) => {
       const existing = prev[sectionId];
-      return {
-        ...prev,
-        [sectionId]: {
-          score: existing?.score || total,
-          total,
-          bestScore: existing?.bestScore || total,
-          attempts: existing?.attempts || 0,
-          completed: true,
-          lastAttempt: new Date().toISOString(),
-        },
-      };
+      const isCurrentlyComplete = existing?.completed || false;
+      
+      if (isCurrentlyComplete) {
+        // Remove completion status
+        return {
+          ...prev,
+          [sectionId]: {
+            ...existing,
+            completed: false,
+          },
+        };
+      } else {
+        // Mark as complete
+        return {
+          ...prev,
+          [sectionId]: {
+            score: existing?.score || total,
+            total,
+            bestScore: existing?.bestScore || total,
+            attempts: existing?.attempts || 0,
+            completed: true,
+            lastAttempt: new Date().toISOString(),
+          },
+        };
+      }
     });
   }, []);
 
@@ -161,6 +175,6 @@ export function useStudyProgress() {
     getProgressPercentage,
     resetProgress,
     resetSectionProgress,
-    markSectionComplete,
+    toggleSectionComplete,
   };
 }

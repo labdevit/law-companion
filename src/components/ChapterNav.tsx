@@ -93,19 +93,17 @@ export function ChapterNav({
                       )}
                       onClick={() => onSelectSection(section.id)}
                     >
-                      {/* Status icon - clickable to mark complete */}
+                      {/* Status icon - clickable to toggle complete */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (!progress?.completed) {
-                            onMarkComplete(section.id);
-                          }
+                          onMarkComplete(section.id);
                         }}
                         className="w-5 h-5 flex items-center justify-center"
-                        title={progress?.completed ? "Terminé" : "Marquer comme terminé"}
+                        title={progress?.completed ? "Marquer comme non terminé" : "Marquer comme terminé"}
                       >
                         {progress?.completed ? (
-                          <CheckCircle2 className="w-4 h-4 text-secondary" />
+                          <CheckCircle2 className="w-4 h-4 text-secondary hover:text-muted-foreground transition-colors" />
                         ) : (
                           <Circle className="w-4 h-4 text-muted-foreground hover:text-secondary transition-colors" />
                         )}
