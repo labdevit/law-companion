@@ -25,6 +25,7 @@ const Index = () => {
     getStats,
     getProgressPercentage,
     resetProgress,
+    markSectionComplete,
   } = useStudyProgress();
 
   const activeCourse = useMemo(
@@ -181,6 +182,7 @@ const Index = () => {
             getSectionProgress={getSectionProgress}
             isFavorite={isFavorite}
             onToggleFavorite={toggleFavorite}
+            onMarkComplete={(sectionId) => markSectionComplete(sectionId)}
           />
         </div>
       </aside>
