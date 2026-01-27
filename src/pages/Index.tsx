@@ -8,6 +8,7 @@ import { ChapterNav } from "@/components/ChapterNav";
 import { CourseContent } from "@/components/CourseContent";
 import { QuizSection } from "@/components/QuizSection";
 import { StatsDisplay } from "@/components/StatsDisplay";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
@@ -199,29 +200,45 @@ const Index = () => {
 
       {/* Main content */}
       <main className="flex-1 p-4 lg:p-6 lg:pl-8">
-        {/* Top bar */}
-        <header className="flex items-center justify-between gap-4 mb-5 pl-12 lg:pl-0">
-          <div>
-            <h2 className="text-lg font-bold">{activeSection?.title || "Sélectionne une section"}</h2>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setHighlightsEnabled(!highlightsEnabled)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 text-xs rounded-xl border transition-all",
-                highlightsEnabled ? "border-primary/50 bg-primary/10" : "border-border/50 bg-card/50"
-              )}
-            >
-              <Sparkles className="w-4 h-4" />
-              Surlignage {highlightsEnabled ? "ON" : "OFF"}
-            </button>
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+        {/* Top bar with breadcrumbs */}
+        <header className="flex flex-col gap-3 mb-5 pl-12 lg:pl-0">
+          <div className="flex items-center justify-between gap-4">
+            <Breadcrumbs
+              items={[
+                { label: "Accueil", onClick: () => setActiveCourseId(null) },
+                ...(activeCourse
+                  ? [
+                      {
+                        label: activeCourse.title,
+                        onClick: activeSection ? () => setActiveSectionId(null) : undefined,
+                        isActive: !activeSection,
+                      },
+                    ]
+                  : []),
+                ...(activeSection
+                  ? [{ label: activeSection.title, isActive: true }]
+                  : []),
+              ]}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setHighlightsEnabled(!highlightsEnabled)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 text-xs rounded-xl border transition-all",
+                  highlightsEnabled ? "border-primary/50 bg-primary/10" : "border-border/50 bg-card/50"
+                )}
+              >
+                <Sparkles className="w-4 h-4" />
+                Surlignage {highlightsEnabled ? "ON" : "OFF"}
+              </button>
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </header>
 
