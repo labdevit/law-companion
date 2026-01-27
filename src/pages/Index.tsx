@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon } from "lucide-react";
+import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon, RotateCcw } from "lucide-react";
 import { COURSES, getAllSections } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useTheme } from "@/hooks/useTheme";
@@ -57,7 +57,7 @@ const Index = () => {
   };
 
   const handleReset = () => {
-    if (confirm("Réinitialiser tous les progrès ?")) {
+    if (confirm("Réinitialiser tous les progrès ? Cette action est irréversible.")) {
       resetProgress();
     }
   };
@@ -79,13 +79,23 @@ const Index = () => {
                   <p className="text-sm text-muted-foreground">Révise efficacement avec des cours structurés et des quiz</p>
                 </div>
               </div>
-              <button
-                onClick={toggleTheme}
-                className="p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all"
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleReset}
+                  className="p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-destructive/10 hover:border-destructive/50 transition-all group"
+                  aria-label="Réinitialiser les progrès"
+                  title="Réinitialiser tous les progrès"
+                >
+                  <RotateCcw className="w-5 h-5 text-muted-foreground group-hover:text-destructive" />
+                </button>
+                <button
+                  onClick={toggleTheme}
+                  className="p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-muted/50 transition-all"
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
             <StatsDisplay
