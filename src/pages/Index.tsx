@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon, RotateCcw } from "lucide-react";
-import { COURSES, getAllSections } from "@/data/courses";
+import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy } from "lucide-react";
+import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
+import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
 import { CourseCard } from "@/components/CourseCard";
 import { ChapterNav } from "@/components/ChapterNav";
@@ -10,6 +11,7 @@ import { QuizSection } from "@/components/QuizSection";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProgressToast } from "@/components/ProgressToast";
+import { CourseCreatorModal } from "@/components/CourseCreator";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
@@ -19,6 +21,7 @@ const Index = () => {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [highlightsEnabled, setHighlightsEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showCourseCreator, setShowCourseCreator] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   const {
@@ -32,9 +35,14 @@ const Index = () => {
     toggleSectionComplete,
   } = useStudyProgress();
 
+  const { customCourses, addCourse, deleteCourse, duplicateCourse } = useCustomCourses();
+
+  // Combine default and custom courses
+  const allCourses: Course[] = useMemo(() => [...COURSES, ...customCourses], [customCourses]);
+
   const activeCourse = useMemo(
-    () => COURSES.find((c) => c.id === activeCourseId) || null,
-    [activeCourseId]
+    () => allCourses.find((c) => c.id === activeCourseId) || null,
+    [activeCourseId, allCourses]
   );
 
   const activeSection = useMemo(() => {
@@ -44,8 +52,8 @@ const Index = () => {
 
   // Calculate total sections across all courses
   const allCourseSections = useMemo(() => {
-    return COURSES.flatMap(course => getAllSections(course));
-  }, []);
+    return allCourses.flatMap(course => getAllSections(course));
+  }, [allCourses]);
 
   const stats = getStats(allCourseSections.length);
 
@@ -54,12 +62,26 @@ const Index = () => {
 
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
-    const course = COURSES.find((c) => c.id === courseId);
+    const course = allCourses.find((c) => c.id === courseId);
     if (course && course.chapters[0]?.sections[0]) {
       setActiveSectionId(course.chapters[0].sections[0].id);
     }
     setSidebarOpen(false);
   };
+
+  const handleDeleteCustomCourse = (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Supprimer ce cours personnalisé ?")) {
+      deleteCourse(courseId);
+    }
+  };
+
+  const handleDuplicateCourse = (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    duplicateCourse(courseId);
+  };
+
+  const isCustomCourse = (courseId: string) => customCourses.some((c) => c.id === courseId);
 
   const handleValidateQuiz = (score: number, total: number) => {
     if (activeSectionId) {
@@ -128,23 +150,67 @@ const Index = () => {
 
           {/* Course grid */}
           <section>
-            <h2 className="text-lg font-bold mb-4">📚 Choisis un cours</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">📚 Choisis un cours</h2>
+              <button
+                onClick={() => setShowCourseCreator(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Créer un cours
+              </button>
+            </div>
             <div className="grid md:grid-cols-2 gap-4">
-              {COURSES.map((course) => {
-                const allSections = getAllSections(course);
-                const progress = getProgressPercentage(course.id, allSections.map((s) => s.id));
+              {allCourses.map((course) => {
+                const sections = getAllSections(course);
+                const progress = getProgressPercentage(course.id, sections.map((s) => s.id));
+                const isCustom = isCustomCourse(course.id);
                 return (
-                  <CourseCard
-                    key={course.id}
-                    course={course}
-                    progress={progress}
-                    isActive={false}
-                    onClick={() => handleSelectCourse(course.id)}
-                  />
+                  <div key={course.id} className="relative group">
+                    <CourseCard
+                      course={course}
+                      progress={progress}
+                      isActive={false}
+                      onClick={() => handleSelectCourse(course.id)}
+                    />
+                    {isCustom && (
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleDuplicateCourse(course.id, e)}
+                          className="p-1.5 rounded-lg bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-muted/80"
+                          title="Dupliquer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteCustomCourse(course.id, e)}
+                          className="p-1.5 rounded-lg bg-background/80 backdrop-blur-sm border border-destructive/30 text-destructive hover:bg-destructive/10"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    {isCustom && (
+                      <span className="absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+                        Personnalisé
+                      </span>
+                    )}
+                  </div>
                 );
               })}
             </div>
           </section>
+
+          {/* Course Creator Modal */}
+          <CourseCreatorModal
+            isOpen={showCourseCreator}
+            onClose={() => setShowCourseCreator(false)}
+            onSave={(data) => {
+              addCourse(data);
+              setShowCourseCreator(false);
+            }}
+          />
         </div>
       </div>
     );
