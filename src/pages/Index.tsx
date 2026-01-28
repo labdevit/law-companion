@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon, RotateCcw } from "lucide-react";
 import { COURSES, getAllSections } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
@@ -9,7 +9,10 @@ import { CourseContent } from "@/components/CourseContent";
 import { QuizSection } from "@/components/QuizSection";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { ProgressToast } from "@/components/ProgressToast";
 import { cn } from "@/lib/utils";
+
+type ToastType = "complete" | "uncomplete" | "reset" | null;
 
 const Index = () => {
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
@@ -46,6 +49,9 @@ const Index = () => {
 
   const stats = getStats(allCourseSections.length);
 
+  // Toast state
+  const [toastType, setToastType] = useState<ToastType>(null);
+
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
     const course = COURSES.find((c) => c.id === courseId);
@@ -65,8 +71,16 @@ const Index = () => {
   const handleReset = () => {
     if (confirm("Réinitialiser tous les progrès ? Cette action est irréversible.")) {
       resetProgress();
+      setToastType("reset");
     }
   };
+
+  const handleToggleSectionComplete = useCallback((sectionId: string) => {
+    const currentProgress = getSectionProgress(sectionId);
+    const wasCompleted = currentProgress?.completed || false;
+    toggleSectionComplete(sectionId);
+    setToastType(wasCompleted ? "uncomplete" : "complete");
+  }, [getSectionProgress, toggleSectionComplete]);
 
   // Home view (no course selected)
   if (!activeCourse) {
@@ -198,7 +212,7 @@ const Index = () => {
             getSectionProgress={getSectionProgress}
             isFavorite={isFavorite}
             onToggleFavorite={toggleFavorite}
-            onMarkComplete={(sectionId) => toggleSectionComplete(sectionId)}
+            onMarkComplete={handleToggleSectionComplete}
           />
         </div>
       </aside>
@@ -280,6 +294,16 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      {/* Progress Toast */}
+      {toastType && (
+        <ProgressToast
+          type={toastType}
+          sectionsCompleted={stats.sectionsCompleted}
+          totalSections={stats.totalSections}
+          onClose={() => setToastType(null)}
+        />
+      )}
     </div>
   );
 };
