@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-interface SectionProgress {
+export interface SectionProgress {
   score: number;
   total: number;
   bestScore: number;

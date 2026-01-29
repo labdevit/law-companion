@@ -1,17 +1,16 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, BookOpen, HelpCircle, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy } from "lucide-react";
+import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Upload } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
 import { CourseCard } from "@/components/CourseCard";
 import { ChapterNav } from "@/components/ChapterNav";
-import { CourseContent } from "@/components/CourseContent";
-import { QuizSection } from "@/components/QuizSection";
+import { SectionView } from "@/components/SectionView";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProgressToast } from "@/components/ProgressToast";
-import { CourseCreatorModal } from "@/components/CourseCreator";
+import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
@@ -22,6 +21,7 @@ const Index = () => {
   const [highlightsEnabled, setHighlightsEnabled] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCourseCreator, setShowCourseCreator] = useState(false);
+  const [showCourseImporter, setShowCourseImporter] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   const {
@@ -152,13 +152,22 @@ const Index = () => {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">📚 Choisis un cours</h2>
-              <button
-                onClick={() => setShowCourseCreator(true)}
-                className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Créer un cours
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCourseImporter(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl border border-border/50 hover:bg-muted/50 transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Importer
+                </button>
+                <button
+                  onClick={() => setShowCourseCreator(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Créer
+                </button>
+              </div>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               {allCourses.map((course) => {
@@ -209,6 +218,16 @@ const Index = () => {
             onSave={(data) => {
               addCourse(data);
               setShowCourseCreator(false);
+            }}
+          />
+
+          {/* Course Importer Modal */}
+          <CourseImporter
+            isOpen={showCourseImporter}
+            onClose={() => setShowCourseImporter(false)}
+            onImport={(data) => {
+              addCourse(data);
+              setShowCourseImporter(false);
             }}
           />
         </div>
@@ -327,33 +346,14 @@ const Index = () => {
           </div>
         </header>
 
-        {/* Content grid */}
+        {/* Content - now uses SectionView which separates content and quiz */}
         {activeSection ? (
-          <div className="grid lg:grid-cols-[1.3fr_1fr] gap-4">
-            {/* Course content */}
-            <section className="rounded-2xl border border-border/50 bg-card/50 p-5 shadow-lg">
-              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-                <BookOpen className="w-4 h-4" />
-                <span>Cours</span>
-              </div>
-              <CourseContent section={activeSection} highlightsEnabled={highlightsEnabled} />
-            </section>
-
-            {/* Quiz */}
-            <aside className="rounded-2xl border border-border/50 bg-card/50 p-5 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <HelpCircle className="w-4 h-4" />
-                  <span>Quiz ({activeSection.quiz.length} questions)</span>
-                </div>
-              </div>
-              <QuizSection
-                section={activeSection}
-                onComplete={handleValidateQuiz}
-                previousScore={getSectionProgress(activeSection.id)}
-              />
-            </aside>
-          </div>
+          <SectionView
+            section={activeSection}
+            highlightsEnabled={highlightsEnabled}
+            onComplete={handleValidateQuiz}
+            previousScore={getSectionProgress(activeSection.id)}
+          />
         ) : (
           <div className="text-center py-20 text-muted-foreground">
             Sélectionne une section dans le menu pour commencer.
