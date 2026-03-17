@@ -148,10 +148,17 @@ export function CourseQA({ course }: CourseQAProps) {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            question,
+            question: question || `Analyse ce document : ${fileToSend?.name || ""}`,
             courseContent,
             courseTitle: course.title,
             history: messages.map(({ role, content }) => ({ role, content })),
+            ...(fileToSend && {
+              file: {
+                name: fileToSend.name,
+                type: fileToSend.type,
+                base64: fileToSend.base64,
+              },
+            }),
           }),
         }
       );
