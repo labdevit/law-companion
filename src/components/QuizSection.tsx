@@ -137,10 +137,13 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
         {q.type === "mcq" && q.choices && (
           <div className="space-y-2 ml-10">
             {q.choices.map((choice, i) => (
-              <label
+              <button
+                type="button"
                 key={i}
+                onClick={() => !state.validated && handleAnswerChange(idx, i)}
+                disabled={state.validated}
                 className={cn(
-                  "flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200 group/choice",
+                  "flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200 group/choice text-left w-full",
                   state.answers[idx] === i
                     ? "border-primary/40 bg-primary/8 shadow-sm"
                     : "border-border/20 bg-background/30 hover:bg-muted/20 hover:border-border/40",
