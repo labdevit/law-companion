@@ -165,7 +165,7 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
                 {state.validated && i === q.correctAnswer && (
                   <CheckCircle2 className="w-4 h-4 text-secondary flex-shrink-0" />
                 )}
-              </label>
+              </button>
             ))}
           </div>
         )}
