@@ -216,7 +216,7 @@ function WhiteboardSections({ sections }: { sections: WhiteboardSection[] }) {
             {/* Section body */}
             <div className="px-6 py-5">
               <div className="max-w-none">
-                <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>{normalizeMarkdownTables(section.body)}</ReactMarkdown>
               </div>
             </div>
           </div>
