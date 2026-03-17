@@ -391,7 +391,35 @@ export function CourseQA({ course }: CourseQAProps) {
 
       {/* Input area */}
       <div className="p-3 border-t border-border/40 bg-muted/20">
+        {/* Attached file indicator */}
+        {attachedFile && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-primary/5 border border-primary/20 text-sm">
+            <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+            <span className="truncate text-foreground/80">{attachedFile.name}</span>
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+              {(attachedFile.size / 1024).toFixed(0)} Ko
+            </span>
+            <button onClick={() => setAttachedFile(null)} className="ml-auto p-0.5 rounded-full hover:bg-destructive/10 transition-colors">
+              <XCircle className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+            </button>
+          </div>
+        )}
         <div className="flex gap-2 items-end">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="p-3 rounded-2xl hover:bg-muted/60 transition-colors flex-shrink-0"
+            title="Joindre un document PDF ou DOCX"
+          >
+            <Paperclip className="w-4 h-4 text-muted-foreground" />
+          </button>
           <textarea
             ref={inputRef}
             value={input}
@@ -404,10 +432,10 @@ export function CourseQA({ course }: CourseQAProps) {
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !attachedFile) || isLoading}
             className={cn(
               "p-3 rounded-2xl transition-all flex-shrink-0 shadow-sm",
-              input.trim() && !isLoading
+              (input.trim() || attachedFile) && !isLoading
                 ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground hover:shadow-md hover:scale-105"
                 : "bg-muted text-muted-foreground"
             )}
@@ -416,7 +444,7 @@ export function CourseQA({ course }: CourseQAProps) {
           </button>
         </div>
         <p className="text-[10px] text-muted-foreground/50 text-center mt-2">
-          Les réponses sont basées uniquement sur le contenu de votre cours
+          PDF et DOCX acceptés · Réponses basées sur votre cours
         </p>
       </div>
     </div>
