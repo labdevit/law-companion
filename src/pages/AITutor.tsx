@@ -32,13 +32,23 @@ const SECTION_STYLES: Record<string, { bg: string; border: string; accent: strin
 /** Strip any leftover LaTeX artifacts like $...$ or \frac etc */
 function cleanLatex(text: string): string {
   return text
-    .replace(/\$([^$]+)\$/g, '$1')
-    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 ÷ $2')
-    .replace(/\\(sum|text|left|right|times|cdot)/g, '')
-    .replace(/\^{([^}]+)}/g, ' puissance $1')
-    .replace(/_{([^}]+)}/g, '$1')
-    .replace(/\\[a-zA-Z]+/g, '')
-    .replace(/\s{2,}/g, ' ');
+    .replace(/\r\n/g, "\n")
+    .replace(/\$([^$]+)\$/g, "$1")
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1 ÷ $2")
+    .replace(/\\(sum|text|left|right|times|cdot)/g, "")
+    .replace(/\^{([^}]+)}/g, " puissance $1")
+    .replace(/_{([^}]+)}/g, "$1")
+    .replace(/\\[a-zA-Z]+/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+function normalizeMarkdownTables(text: string): string {
+  return text
+    .replace(/([:?!])\s+(\|[^\n]+\|)/g, "$1\n\n$2")
+    .replace(/([^\n])\n(\|[-:\s]+\|)/g, "$1\n$2")
+    .replace(/(\|[^\n]+\|)\n(?!\n|\|)/g, "$1\n\n");
 }
 
 function parseSections(content: string): WhiteboardSection[] {
