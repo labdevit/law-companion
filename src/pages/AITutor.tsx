@@ -28,13 +28,34 @@ const SECTION_STYLES: Record<string, { bg: string; border: string; accent: strin
   "✅": { bg: "bg-secondary/[0.04]", border: "border-secondary/15", accent: "text-secondary", glow: "shadow-secondary/5", icon: "from-secondary/20 to-secondary/5" },
 };
 
+/** Strip any leftover LaTeX artifacts like $...$ or \frac etc */
+function cleanLatex(text: string): string {
+  return text
+    // Remove $...$ wrappers but keep inner content
+    .replace(/\$([^$]+)\$/g, '$1')
+    // Clean \frac{a}{b} -> a/b
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 ÷ $2')
+    // Clean \sum, \text, etc
+    .replace(/\\(sum|text|left|right|times|cdot)/g, '')
+    // Clean ^{n} -> puissance n
+    .replace(/\^{([^}]+)}/g, ' puissance $1')
+    // Clean _{n} -> subscript
+    .replace(/_{([^}]+)}/g, '$1')
+    // Clean remaining backslash commands
+    .replace(/\\[a-zA-Z]+/g, '')
+    // Clean double spaces
+    .replace(/\s{2,}/g, ' ');
+}
+
 function parseSections(content: string): WhiteboardSection[] {
-  if (!content.includes("## ")) {
-    return content.trim() ? [{ emoji: "📐", title: "Réponse", body: content }] : [];
+  const cleaned = cleanLatex(content);
+  
+  if (!cleaned.includes("## ")) {
+    return cleaned.trim() ? [{ emoji: "📐", title: "Réponse", body: cleaned }] : [];
   }
 
   const sections: WhiteboardSection[] = [];
-  const parts = content.split(/^## /gm).filter(Boolean);
+  const parts = cleaned.split(/^## /gm).filter(Boolean);
 
   for (const part of parts) {
     const firstNewline = part.indexOf("\n");
