@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, XCircle, RotateCcw, Trophy } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, Trophy, Zap } from "lucide-react";
 import { Section, QuizQuestion } from "@/data/courses";
 import { cn } from "@/lib/utils";
 import { validateShortAnswer } from "@/lib/textMatching";
@@ -25,16 +25,12 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
     score: 0,
   });
   const [tipMessage, setTipMessage] = useState("");
+  const [currentQuestion, setCurrentQuestion] = useState(0);
 
-  // Reset when section changes
   useEffect(() => {
-    setState({
-      answers: {},
-      results: {},
-      validated: false,
-      score: 0,
-    });
+    setState({ answers: {}, results: {}, validated: false, score: 0 });
     setTipMessage("");
+    setCurrentQuestion(0);
   }, [section.id]);
 
   if (section.quiz.length === 0) {
@@ -66,29 +62,18 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
       } else if (q.type === "tf" && answer !== undefined && answer !== null) {
         correct = answer === q.correctAnswer;
       } else if (q.type === "short" && typeof answer === "string" && Array.isArray(q.correctAnswer)) {
-        // Use smart validation
         const validation = validateShortAnswer(answer, q.correctAnswer, 0.4);
         correct = validation.isCorrect;
-        
         if (!correct && validation.missedKeywords.length > 0) {
           hint = `Mots-clés attendus : ${validation.missedKeywords.slice(0, 2).join(", ")}...`;
         }
       }
 
       if (correct) score++;
-      newResults[idx] = {
-        correct,
-        explanation: q.explanation,
-        hint,
-      };
+      newResults[idx] = { correct, explanation: q.explanation, hint };
     });
 
-    setState((prev) => ({
-      ...prev,
-      results: newResults,
-      validated: true,
-      score,
-    }));
+    setState((prev) => ({ ...prev, results: newResults, validated: true, score }));
 
     const total = section.quiz.length;
     const passed = onComplete(score, total);
@@ -96,71 +81,87 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
 
     setTipMessage(
       passed
-        ? `🎉 Bravo ! Score : ${score}/${total} (${percentage}%) — Section validée !`
-        : `Score : ${score}/${total} (${percentage}%) — Objectif : 70% pour valider`
+        ? `🎉 Bravo ! ${score}/${total} (${percentage}%) — Section validée !`
+        : `${score}/${total} (${percentage}%) — Objectif : 70% pour valider`
     );
   };
 
   const handleReset = () => {
-    setState({
-      answers: {},
-      results: {},
-      validated: false,
-      score: 0,
-    });
+    setState({ answers: {}, results: {}, validated: false, score: 0 });
     setTipMessage("");
+    setCurrentQuestion(0);
   };
+
+  const answeredCount = Object.keys(state.answers).filter(k => state.answers[Number(k)] !== null && state.answers[Number(k)] !== undefined && state.answers[Number(k)] !== "").length;
+  const progressPercent = Math.round((answeredCount / section.quiz.length) * 100);
 
   const renderQuestion = (q: QuizQuestion, idx: number) => {
     const result = state.results[idx];
     const qKey = `${section.id}_q${idx}`;
+    const isAnswered = state.answers[idx] !== undefined && state.answers[idx] !== null && state.answers[idx] !== "";
 
     return (
       <div
         key={idx}
         className={cn(
-          "p-4 rounded-xl border transition-all duration-200 mb-3",
+          "p-5 rounded-2xl border transition-all duration-300 mb-4 animate-fade-in",
           result?.correct === true
-            ? "border-secondary/50 bg-secondary/5"
+            ? "border-secondary/40 bg-secondary/5"
             : result?.correct === false
-            ? "border-destructive/50 bg-destructive/5"
-            : "border-border/50 bg-card/50"
+            ? "border-destructive/40 bg-destructive/5"
+            : isAnswered
+            ? "border-primary/30 bg-primary/5"
+            : "border-border/30 bg-card/40"
         )}
       >
-        <p className="text-sm font-semibold mb-3 flex gap-2">
-          <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs flex-shrink-0">
+        {/* Question header */}
+        <div className="flex items-start gap-3 mb-4">
+          <span className={cn(
+            "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-colors",
+            result?.correct === true ? "bg-secondary/15 text-secondary" :
+            result?.correct === false ? "bg-destructive/15 text-destructive" :
+            isAnswered ? "bg-primary/15 text-primary" :
+            "bg-muted/60 text-muted-foreground"
+          )}>
             {idx + 1}
           </span>
-          <span>{q.question}</span>
-        </p>
+          <div className="flex-1">
+            <p className="text-sm font-semibold leading-relaxed">{q.question}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium">
+              {q.type === "mcq" ? "Choix multiple" : q.type === "tf" ? "Vrai ou Faux" : "Réponse courte"}
+            </p>
+          </div>
+        </div>
 
         {/* MCQ */}
         {q.type === "mcq" && q.choices && (
-          <div className="space-y-2 ml-8">
+          <div className="space-y-2 ml-10">
             {q.choices.map((choice, i) => (
               <label
                 key={i}
                 className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150",
+                  "flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200 group/choice",
                   state.answers[idx] === i
-                    ? "border-primary/50 bg-primary/10"
-                    : "border-border/30 bg-background/50 hover:bg-muted/30",
-                  state.validated && i === q.correctAnswer && "border-secondary bg-secondary/10",
-                  state.validated && state.answers[idx] === i && i !== q.correctAnswer && "border-destructive bg-destructive/10"
+                    ? "border-primary/40 bg-primary/8 shadow-sm"
+                    : "border-border/20 bg-background/30 hover:bg-muted/20 hover:border-border/40",
+                  state.validated && i === q.correctAnswer && "border-secondary/50 bg-secondary/8 shadow-sm",
+                  state.validated && state.answers[idx] === i && i !== q.correctAnswer && "border-destructive/50 bg-destructive/8"
                 )}
               >
-                <input
-                  type="radio"
-                  name={qKey}
-                  value={i}
-                  checked={state.answers[idx] === i}
-                  onChange={() => handleAnswerChange(idx, i)}
-                  className="mt-0.5 accent-primary"
-                  disabled={state.validated}
-                />
-                <span className="text-sm">
-                  <strong className="text-muted-foreground">{String.fromCharCode(65 + i)}.</strong> {choice}
-                </span>
+                <div className={cn(
+                  "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                  state.answers[idx] === i ? "border-primary bg-primary" :
+                  state.validated && i === q.correctAnswer ? "border-secondary bg-secondary" :
+                  "border-muted-foreground/30 group-hover/choice:border-muted-foreground/50"
+                )}>
+                  {(state.answers[idx] === i || (state.validated && i === q.correctAnswer)) && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </div>
+                <span className="text-sm flex-1">{choice}</span>
+                {state.validated && i === q.correctAnswer && (
+                  <CheckCircle2 className="w-4 h-4 text-secondary flex-shrink-0" />
+                )}
               </label>
             ))}
           </div>
@@ -168,50 +169,43 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
 
         {/* True/False */}
         {q.type === "tf" && (
-          <div className="space-y-2 ml-8">
+          <div className="flex gap-3 ml-10">
             {[
-              { value: true, label: "Vrai" },
-              { value: false, label: "Faux" },
+              { value: true, label: "Vrai", emoji: "✓" },
+              { value: false, label: "Faux", emoji: "✗" },
             ].map((opt) => (
-              <label
+              <button
                 key={String(opt.value)}
+                onClick={() => !state.validated && handleAnswerChange(idx, opt.value)}
+                disabled={state.validated}
                 className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-150",
+                  "flex-1 flex items-center justify-center gap-2 p-3.5 rounded-xl border font-medium text-sm transition-all duration-200",
                   state.answers[idx] === opt.value
-                    ? "border-primary/50 bg-primary/10"
-                    : "border-border/30 bg-background/50 hover:bg-muted/30",
-                  state.validated && opt.value === q.correctAnswer && "border-secondary bg-secondary/10",
-                  state.validated && state.answers[idx] === opt.value && opt.value !== q.correctAnswer && "border-destructive bg-destructive/10"
+                    ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+                    : "border-border/20 bg-background/30 hover:bg-muted/20 text-muted-foreground",
+                  state.validated && opt.value === q.correctAnswer && "border-secondary/50 bg-secondary/10 text-secondary",
+                  state.validated && state.answers[idx] === opt.value && opt.value !== q.correctAnswer && "border-destructive/50 bg-destructive/10 text-destructive"
                 )}
               >
-                <input
-                  type="radio"
-                  name={qKey}
-                  value={String(opt.value)}
-                  checked={state.answers[idx] === opt.value}
-                  onChange={() => handleAnswerChange(idx, opt.value)}
-                  className="mt-0.5 accent-primary"
-                  disabled={state.validated}
-                />
-                <span className="text-sm font-medium">{opt.label}</span>
-              </label>
+                {opt.label}
+              </button>
             ))}
           </div>
         )}
 
         {/* Short answer */}
         {q.type === "short" && (
-          <div className="ml-8">
+          <div className="ml-10">
             <input
               type="text"
               placeholder="Écris ta réponse ici..."
               value={(state.answers[idx] as string) || ""}
               onChange={(e) => handleAnswerChange(idx, e.target.value)}
               disabled={state.validated}
-              className="w-full p-3 rounded-lg border border-border/50 bg-background/50 text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors text-sm"
+              className="w-full p-3.5 rounded-xl border border-border/30 bg-background/30 text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/40 focus:bg-primary/5 transition-all text-sm"
             />
-            <p className="text-[10px] text-muted-foreground mt-1.5">
-              💡 Utilise les mots-clés importants (pas besoin d'une phrase parfaite)
+            <p className="text-[10px] text-muted-foreground mt-1.5 ml-1">
+              💡 Utilise les mots-clés importants
             </p>
           </div>
         )}
@@ -220,10 +214,10 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
         {result && (
           <div
             className={cn(
-              "mt-3 ml-8 p-3 rounded-lg text-sm flex items-start gap-2",
+              "mt-4 ml-10 p-3.5 rounded-xl text-sm flex items-start gap-2.5 animate-fade-in",
               result.correct
-                ? "bg-secondary/10 text-secondary-foreground"
-                : "bg-destructive/10 text-destructive-foreground"
+                ? "bg-secondary/8 border border-secondary/20"
+                : "bg-destructive/8 border border-destructive/20"
             )}
           >
             {result.correct ? (
@@ -231,7 +225,12 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
             ) : (
               <XCircle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
             )}
-            <span>{result.explanation}</span>
+            <div>
+              <p className="leading-relaxed">{result.explanation}</p>
+              {result.hint && (
+                <p className="text-xs text-muted-foreground mt-1 italic">{result.hint}</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -240,10 +239,12 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
 
   return (
     <div>
-      {/* Previous score info */}
+      {/* Previous score */}
       {previousScore && previousScore.attempts > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-muted/30 border border-border/30 flex items-center gap-3">
-          <Trophy className="w-5 h-5 text-primary" />
+        <div className="mb-5 p-4 rounded-2xl bg-muted/20 border border-border/20 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Trophy className="w-5 h-5 text-primary" />
+          </div>
           <div className="flex-1">
             <p className="text-xs text-muted-foreground">Meilleur score</p>
             <p className="text-sm font-bold">{previousScore.bestScore}/{section.quiz.length}</p>
@@ -255,23 +256,44 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
         </div>
       )}
 
+      {/* Progress indicator */}
+      {!state.validated && (
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex-1 h-1.5 bg-muted/40 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">
+            {answeredCount}/{section.quiz.length} répondues
+          </span>
+        </div>
+      )}
+
       {/* Questions */}
       {section.quiz.map((q, idx) => renderQuestion(q, idx))}
 
       {/* Action buttons */}
-      <div className="flex gap-2 mt-4">
+      <div className="flex gap-3 mt-5">
         {!state.validated ? (
           <button
             onClick={handleValidate}
-            className="flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-secondary/20 to-primary/10 border border-secondary/40 text-foreground hover:-translate-y-0.5 transition-all duration-150"
+            disabled={answeredCount === 0}
+            className={cn(
+              "flex-1 py-3.5 px-5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-200",
+              answeredCount === section.quiz.length
+                ? "bg-gradient-to-r from-primary to-secondary text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                : "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
+            )}
           >
-            <CheckCircle2 className="w-4 h-4" />
+            <Zap className="w-4 h-4" />
             Valider mes réponses
           </button>
         ) : (
           <button
             onClick={handleReset}
-            className="flex-1 py-3 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 bg-muted/50 border border-border/50 text-foreground hover:-translate-y-0.5 transition-all duration-150"
+            className="flex-1 py-3.5 px-5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 bg-card/60 border border-border/30 hover:bg-muted/30 transition-all"
           >
             <RotateCcw className="w-4 h-4" />
             Recommencer
@@ -282,10 +304,10 @@ export function QuizSection({ section, onComplete, previousScore }: QuizSectionP
       {/* Result message */}
       {tipMessage && (
         <p className={cn(
-          "text-sm mt-3 text-center p-3 rounded-xl",
+          "text-sm mt-4 text-center p-4 rounded-xl font-medium animate-fade-in",
           state.score / section.quiz.length >= 0.7
-            ? "bg-secondary/10 text-secondary"
-            : "bg-muted text-muted-foreground"
+            ? "bg-secondary/10 text-secondary border border-secondary/20"
+            : "bg-muted/30 text-muted-foreground border border-border/20"
         )}>
           {tipMessage}
         </p>
