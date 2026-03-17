@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Course, Chapter, Section, QuizQuestion } from "@/data/courses";
 
 const CUSTOM_COURSES_KEY = "pandora_custom_courses";
+const HIDDEN_COURSES_KEY = "pandora_hidden_courses";
 
 // Helper to generate unique IDs
 const generateId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -47,10 +48,22 @@ export function useCustomCourses() {
     }
   });
 
+  const [hiddenCourseIds, setHiddenCourseIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(HIDDEN_COURSES_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
+
   // Persist to localStorage
   useEffect(() => {
     localStorage.setItem(CUSTOM_COURSES_KEY, JSON.stringify(customCourses));
   }, [customCourses]);
+
+  useEffect(() => {
+    localStorage.setItem(HIDDEN_COURSES_KEY, JSON.stringify(hiddenCourseIds));
+  }, [hiddenCourseIds]);
 
   const addCourse = useCallback((data: CustomCourseData): Course => {
     const courseId = generateId("custom");
@@ -104,6 +117,18 @@ export function useCustomCourses() {
     setCustomCourses((prev) => prev.filter((c) => c.id !== courseId));
   }, []);
 
+  const hideCourse = useCallback((courseId: string) => {
+    setHiddenCourseIds((prev) => [...prev, courseId]);
+  }, []);
+
+  const restoreCourse = useCallback((courseId: string) => {
+    setHiddenCourseIds((prev) => prev.filter((id) => id !== courseId));
+  }, []);
+
+  const restoreAllCourses = useCallback(() => {
+    setHiddenCourseIds([]);
+  }, []);
+
   const duplicateCourse = useCallback((courseId: string) => {
     const course = customCourses.find((c) => c.id === courseId);
     if (!course) return;
@@ -128,9 +153,13 @@ export function useCustomCourses() {
 
   return {
     customCourses,
+    hiddenCourseIds,
     addCourse,
     updateCourse,
     deleteCourse,
+    hideCourse,
+    restoreCourse,
+    restoreAllCourses,
     duplicateCourse,
   };
 }
