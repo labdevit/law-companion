@@ -24,9 +24,19 @@ interface ParsedCourse {
   }[];
 }
 
+const ACCEPTED_TYPES = {
+  "text/plain": ".txt",
+  "text/markdown": ".md",
+  "application/pdf": ".pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+};
+
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
+
 export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProps) {
   const [step, setStep] = useState<Step>("upload");
   const [rawContent, setRawContent] = useState("");
+  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; base64: string } | null>(null);
   const [parsedCourse, setParsedCourse] = useState<ParsedCourse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [icon, setIcon] = useState(COURSE_ICONS[0]);
@@ -40,17 +50,47 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setRawContent(content);
-    };
-    reader.onerror = () => setError("Erreur lors de la lecture du fichier");
-    reader.readAsText(file);
+    if (file.size > MAX_FILE_SIZE) {
+      setError("Le fichier est trop volumineux (max 15 Mo)");
+      return;
+    }
+
+    const isText = file.type === "text/plain" || file.type === "text/markdown" || file.name.endsWith(".txt") || file.name.endsWith(".md");
+    const isPdfOrDocx = file.type === "application/pdf" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.endsWith(".pdf") || file.name.endsWith(".docx");
+
+    if (!isText && !isPdfOrDocx) {
+      setError("Format non supporté. Utilisez .txt, .md, .pdf ou .docx");
+      return;
+    }
+
+    setError(null);
+
+    if (isText) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setRawContent(event.target?.result as string);
+        setAttachedFile(null);
+      };
+      reader.onerror = () => setError("Erreur lors de la lecture du fichier");
+      reader.readAsText(file);
+    } else {
+      // PDF or DOCX → base64
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = (event.target?.result as string).split(",")[1];
+        setAttachedFile({ name: file.name, type: file.type, base64 });
+        setRawContent("");
+      };
+      reader.onerror = () => setError("Erreur lors de la lecture du fichier");
+      reader.readAsDataURL(file);
+    }
+
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const processWithAI = async () => {
-    if (!rawContent.trim()) return;
+    if (!rawContent.trim() && !attachedFile) return;
 
     setStep("processing");
     setError(null);
@@ -71,8 +111,15 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
     }, 3000);
 
     try {
+      const body: any = {};
+      if (attachedFile) {
+        body.file = attachedFile;
+      } else {
+        body.content = rawContent;
+      }
+
       const { data, error: fnError } = await supabase.functions.invoke("process-course", {
-        body: { content: rawContent },
+        body,
       });
 
       clearInterval(interval);
@@ -114,10 +161,13 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
   const handleClose = () => {
     setStep("upload");
     setRawContent("");
+    setAttachedFile(null);
     setParsedCourse(null);
     setError(null);
     onClose();
   };
+
+  const hasInput = rawContent.trim().length > 0 || attachedFile !== null;
 
   const totalSections =
     parsedCourse?.chapters.reduce((acc, ch) => acc + ch.sections.length, 0) || 0;
@@ -141,7 +191,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
             <div>
               <h2 className="font-bold">Import intelligent par IA</h2>
               <p className="text-xs text-muted-foreground">
-                {step === "upload" && "Collez votre contenu, l'IA fait le reste"}
+                {step === "upload" && "Collez votre contenu ou importez un fichier"}
                 {step === "processing" && "Traitement en cours..."}
                 {step === "preview" && "Aperçu du cours généré par l'IA"}
               </p>
@@ -163,58 +213,86 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
                   Propulsé par l'IA
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Collez n'importe quel contenu de cours et l'IA va automatiquement :
+                  Importez un fichier ou collez du texte, l'IA structure tout automatiquement :
                 </p>
                 <ul className="text-xs text-muted-foreground mt-2 space-y-1">
                   <li>🧠 Structurer en chapitres et sections cohérents</li>
                   <li>✨ Appliquer le surlignage sémantique intelligent</li>
                   <li>📝 Générer des quiz variés (QCM, Vrai/Faux, réponses courtes)</li>
-                  <li>📚 Enrichir et reformuler le contenu pédagogiquement</li>
+                  <li>📄 Supporte PDF, DOCX, TXT et Markdown</li>
                 </ul>
               </div>
 
               {/* File upload */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border/50 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all",
+                  attachedFile
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-border/50 hover:border-primary/50 hover:bg-primary/5"
+                )}
               >
-                <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm font-medium">Cliquez pour importer un fichier</p>
-                <p className="text-xs text-muted-foreground mt-1">.txt, .md supportés</p>
+                {attachedFile ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileText className="w-8 h-8 text-primary" />
+                    <p className="text-sm font-medium text-primary">{attachedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">Cliquez pour changer de fichier</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAttachedFile(null);
+                      }}
+                      className="mt-1 text-xs text-destructive hover:underline"
+                    >
+                      Supprimer le fichier
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm font-medium">Cliquez pour importer un fichier</p>
+                    <p className="text-xs text-muted-foreground mt-1">.pdf, .docx, .txt, .md supportés (max 15 Mo)</p>
+                  </>
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".txt,.md"
+                  accept=".txt,.md,.pdf,.docx"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
               </div>
 
-              <div className="relative">
-                <div className="absolute inset-x-0 top-1/2 border-t border-border" />
-                <div className="relative flex justify-center">
-                  <span className="bg-background px-3 text-xs text-muted-foreground">ou</span>
-                </div>
-              </div>
+              {!attachedFile && (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-x-0 top-1/2 border-t border-border" />
+                    <div className="relative flex justify-center">
+                      <span className="bg-background px-3 text-xs text-muted-foreground">ou</span>
+                    </div>
+                  </div>
 
-              {/* Text area */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Collez votre contenu de cours
-                </label>
-                <textarea
-                  value={rawContent}
-                  onChange={(e) => setRawContent(e.target.value)}
-                  placeholder="Collez ici vos notes de cours, résumés, ou tout contenu textuel...
+                  {/* Text area */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Collez votre contenu de cours
+                    </label>
+                    <textarea
+                      value={rawContent}
+                      onChange={(e) => setRawContent(e.target.value)}
+                      placeholder="Collez ici vos notes de cours, résumés, ou tout contenu textuel...
 
 L'IA se charge de tout structurer automatiquement !"
-                  className="w-full h-48 p-3 rounded-xl border border-border bg-card/50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <p className="text-xs text-muted-foreground text-right">
-                  {rawContent.length > 0 && `${rawContent.length} caractères`}
-                </p>
-              </div>
+                      className="w-full h-48 p-3 rounded-xl border border-border bg-card/50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <p className="text-xs text-muted-foreground text-right">
+                      {rawContent.length > 0 && `${rawContent.length} caractères`}
+                    </p>
+                  </div>
+                </>
+              )}
 
               {error && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
@@ -236,7 +314,7 @@ L'IA se charge de tout structurer automatiquement !"
               <div className="text-center">
                 <p className="font-medium text-sm">{processingMessage}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Cela peut prendre jusqu'à 30 secondes...
+                  Cela peut prendre jusqu'à 60 secondes pour les gros documents...
                 </p>
               </div>
               <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -365,7 +443,7 @@ L'IA se charge de tout structurer automatiquement !"
             {step === "upload" && (
               <button
                 onClick={processWithAI}
-                disabled={!rawContent.trim()}
+                disabled={!hasInput}
                 className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
               >
                 <Brain className="w-4 h-4" />

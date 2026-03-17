@@ -10,9 +10,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { content } = await req.json();
-    if (!content || typeof content !== "string") {
-      return new Response(JSON.stringify({ error: "Le champ 'content' est requis" }), {
+    const body = await req.json();
+    const { content, file } = body;
+
+    // Must have either text content or a file
+    if ((!content || typeof content !== "string") && !file) {
+      return new Response(JSON.stringify({ error: "Le champ 'content' ou 'file' est requis" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -21,10 +24,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // Truncate content if too long (keep first ~15000 chars)
-    const truncated = content.length > 15000 ? content.substring(0, 15000) + "\n[... contenu tronqué]" : content;
-
-    const systemPrompt = `Tu es un assistant pédagogique expert. Tu reçois du texte brut (cours, notes, résumés) et tu dois le transformer en un cours structuré au format JSON.
+    const systemPrompt = `Tu es un assistant pédagogique expert. Tu reçois du contenu (texte brut ou document) et tu dois le transformer en un cours structuré au format JSON.
 
 INSTRUCTIONS STRICTES:
 1. Analyse le contenu et identifie les thèmes principaux pour créer des chapitres
@@ -47,6 +47,30 @@ IMPORTANT: Le contenu HTML doit être RICHE et DÉTAILLÉ, pas juste une copie d
 
 Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
 
+    // Build user message content (multimodal if file provided)
+    let userContent: any;
+
+    if (file && file.base64) {
+      // Multimodal: send document as base64
+      const mimeType = file.type || "application/pdf";
+      userContent = [
+        {
+          type: "text",
+          text: `Voici un document "${file.name}" à transformer en cours structuré. Analyse tout le contenu du document et structure-le en chapitres, sections avec contenu HTML riche et quiz.`,
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:${mimeType};base64,${file.base64}`,
+          },
+        },
+      ];
+    } else {
+      // Text content
+      const truncated = content.length > 15000 ? content.substring(0, 15000) + "\n[... contenu tronqué]" : content;
+      userContent = `Voici le contenu du cours à structurer:\n\n${truncated}`;
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -54,10 +78,10 @@ Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Voici le contenu du cours à structurer:\n\n${truncated}` },
+          { role: "user", content: userContent },
         ],
         tools: [
           {
