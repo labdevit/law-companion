@@ -49,7 +49,12 @@ const isSeparatorFragment = (line: string) => /^\s*\|[\s:|\-]+\|?\s*$/.test(line
 
 function normalizeMarkdownTables(text: string): string {
   const introFixed = text.replace(/([:?!])\s+(\|[^\n]+\|?)/g, "$1\n\n$2");
-  const lines = introFixed.split("\n");
+  const repairedSeparators = introFixed.replace(
+    /(\|[\s:-]+\|[\s:-]*)(?:\n\s*)(\|[\s:-]+\|)/g,
+    (_, left, right) => `${left.trim()} ${right.trim()}`,
+  );
+
+  const lines = repairedSeparators.split("\n");
   const normalized: string[] = [];
 
   for (let i = 0; i < lines.length; i += 1) {
@@ -66,12 +71,10 @@ function normalizeMarkdownTables(text: string): string {
     }
 
     if (isSeparatorFragment(line)) {
-      while (i + 1 < lines.length && isSeparatorFragment(lines[i + 1])) {
-        line = `${line.trim()} ${lines[i + 1].trim()}`;
-        i += 1;
-      }
-      line = line.replace(/\s+\|/g, " |").replace(/\|\s+/g, "| ").trim();
+      line = line.replace(/\s+/g, " ").replace(/\s*\|\s*/g, " | ").trim();
+      if (!line.startsWith("|")) line = `| ${line}`;
       if (!line.endsWith("|")) line = `${line} |`;
+      line = line.replace(/\|\s+\|/g, "| |");
     }
 
     if (isTableLine(line) && !line.endsWith("|")) {
