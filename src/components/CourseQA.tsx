@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, Send, X, GraduationCap, User, Loader2, Minimize2, Maximize2, Sparkles, BookOpen } from "lucide-react";
+import { MessageCircle, Send, X, GraduationCap, User, Loader2, Minimize2, Maximize2, Sparkles, BookOpen, Paperclip, FileText, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Course, getAllSections } from "@/data/courses";
 import ReactMarkdown from "react-markdown";
@@ -8,10 +8,18 @@ interface CourseQAProps {
   course: Course;
 }
 
+interface AttachedFile {
+  name: string;
+  type: string;
+  base64: string;
+  size: number;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  fileName?: string;
 }
 
 const TYPING_PHRASES = [
