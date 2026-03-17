@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { question, courseContent, courseTitle } = await req.json();
+    const { question, courseContent, courseTitle, history } = await req.json();
 
     if (!question) {
       return new Response(JSON.stringify({ error: "Une question est requise" }), {
@@ -62,7 +62,28 @@ RÈGLES STRICTES:
 7. Si c'est un exercice, inclus toutes les sections pertinentes
 8. Parle de manière directe, professionnelle mais accessible
 9. N'utilise PAS de flatteries ("Excellente question" etc.)
-10. Pour les formules, écris-les en texte clair (pas de LaTeX)`;
+10. Pour les formules, écris-les en texte clair (pas de LaTeX)
+11. Si l'étudiant pose une question de suivi sur un sujet déjà abordé, approfondis ou clarifie sans tout répéter. Fais référence à ce qui a déjà été expliqué.
+12. Pour les questions de suivi courtes (clarification, "et si...", "pourquoi..."), adapte le format : pas besoin de toutes les sections, réponds de manière ciblée.`;
+
+    // Build messages array with conversation history
+    const messages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    // Add conversation history (limit to last 10 exchanges to manage token usage)
+    if (history && Array.isArray(history)) {
+      const recentHistory = history.slice(-10);
+      for (const entry of recentHistory) {
+        messages.push({ role: "user", content: entry.question });
+        if (entry.response) {
+          messages.push({ role: "assistant", content: entry.response });
+        }
+      }
+    }
+
+    // Add current question
+    messages.push({ role: "user", content: question });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -72,10 +93,7 @@ RÈGLES STRICTES:
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: question },
-        ],
+        messages,
         stream: true,
       }),
     });

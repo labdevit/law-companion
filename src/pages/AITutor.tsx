@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles } from "lucide-react";
+import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles, RotateCcw, MessageCircle } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
@@ -12,6 +12,12 @@ interface WhiteboardSection {
   emoji: string;
   title: string;
   body: string;
+}
+
+interface ConversationEntry {
+  question: string;
+  response: string;
+  sections: WhiteboardSection[];
 }
 
 const SECTION_STYLES: Record<string, { bg: string; border: string; accent: string; glow: string; icon: string }> = {
@@ -121,9 +127,43 @@ const MarkdownComponents = {
   ),
 };
 
+function WhiteboardSections({ sections }: { sections: WhiteboardSection[] }) {
+  return (
+    <div className="grid gap-5">
+      {sections.map((section, idx) => {
+        const style = SECTION_STYLES[section.emoji] || SECTION_STYLES["📐"];
+        return (
+          <div
+            key={idx}
+            className={cn(
+              "rounded-2xl border p-0 overflow-hidden transition-all shadow-sm",
+              style.bg,
+              style.border,
+              style.glow
+            )}
+          >
+            <div className={cn("flex items-center gap-3 px-5 py-3 border-b", style.border)}>
+              <div className={cn("w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center", style.icon)}>
+                <span className="text-base">{section.emoji}</span>
+              </div>
+              <h3 className={cn("font-bold text-sm tracking-tight", style.accent)}>{section.title}</h3>
+            </div>
+            <div className="px-5 py-4">
+              <div className="max-w-none text-sm">
+                <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AITutor() {
   const [query, setQuery] = useState("");
-  const [rawResponse, setRawResponse] = useState("");
+  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
+  const [streamingResponse, setStreamingResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [showCourseSelect, setShowCourseSelect] = useState(false);
@@ -136,13 +176,19 @@ export default function AITutor() {
   const allCourses = useMemo(() => [...COURSES, ...customCourses], [customCourses]);
   const selectedCourse = allCourses.find((c) => c.id === selectedCourseId) || null;
 
-  const sections = useMemo(() => parseSections(rawResponse), [rawResponse]);
+  const streamingSections = useMemo(() => parseSections(streamingResponse), [streamingResponse]);
 
   useEffect(() => {
-    if (sections.length > 0 && whiteboardRef.current) {
+    if (whiteboardRef.current) {
       whiteboardRef.current.scrollTo({ top: whiteboardRef.current.scrollHeight, behavior: "smooth" });
     }
-  }, [rawResponse]);
+  }, [streamingResponse, conversation.length]);
+
+  const handleNewConversation = () => {
+    setConversation([]);
+    setStreamingResponse("");
+    setCurrentQuestion("");
+  };
 
   const handleSubmit = async () => {
     const q = query.trim();
@@ -150,7 +196,7 @@ export default function AITutor() {
 
     setCurrentQuestion(q);
     setQuery("");
-    setRawResponse("");
+    setStreamingResponse("");
     setIsLoading(true);
 
     let courseContent = "";
@@ -159,6 +205,12 @@ export default function AITutor() {
         .map((s) => `## ${s.title}\n${s.content.replace(/<[^>]+>/g, "")}`)
         .join("\n\n");
     }
+
+    // Build history from previous conversation entries
+    const history = conversation.map((entry) => ({
+      question: entry.question,
+      response: entry.response,
+    }));
 
     try {
       const response = await fetch(
@@ -173,6 +225,7 @@ export default function AITutor() {
             question: q,
             courseContent,
             courseTitle: selectedCourse?.title,
+            history,
           }),
         }
       );
@@ -205,7 +258,7 @@ export default function AITutor() {
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               fullContent += content;
-              setRawResponse(fullContent);
+              setStreamingResponse(fullContent);
             }
           } catch {
             buffer = line + "\n" + buffer;
@@ -213,8 +266,17 @@ export default function AITutor() {
           }
         }
       }
+
+      // Once done, commit to conversation history
+      const finalSections = parseSections(fullContent);
+      setConversation((prev) => [
+        ...prev,
+        { question: q, response: fullContent, sections: finalSections },
+      ]);
+      setStreamingResponse("");
+      setCurrentQuestion("");
     } catch (err) {
-      setRawResponse(`❌ ${(err as Error).message}`);
+      setStreamingResponse(`❌ ${(err as Error).message}`);
     } finally {
       setIsLoading(false);
     }
@@ -232,7 +294,7 @@ export default function AITutor() {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  const hasContent = rawResponse.length > 0 || isLoading;
+  const hasContent = conversation.length > 0 || streamingResponse.length > 0 || isLoading;
 
   return (
     <div className="min-h-screen flex flex-col pb-20">
@@ -245,10 +307,25 @@ export default function AITutor() {
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight">Tuteur IA</h1>
-              <p className="text-[11px] text-muted-foreground">Mode tableau blanc</p>
+              <p className="text-[11px] text-muted-foreground">
+                {conversation.length > 0
+                  ? `${conversation.length} échange${conversation.length > 1 ? "s" : ""} dans cette session`
+                  : "Mode tableau blanc"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* New conversation button */}
+            {hasContent && (
+              <button
+                onClick={handleNewConversation}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-border/40 bg-card/60 hover:bg-muted/50 transition-all font-medium"
+                title="Nouvelle conversation"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Nouveau</span>
+              </button>
+            )}
             {/* Course selector */}
             <div className="relative">
               <button
@@ -328,7 +405,7 @@ export default function AITutor() {
               <h2 className="text-xl font-bold mb-2">Ton tableau blanc intelligent</h2>
               <p className="text-sm text-muted-foreground text-center max-w-md mb-8 leading-relaxed">
                 Pose une question complexe — finance, comptabilité, droit — et je te l'explique 
-                visuellement, étape par étape, avec des exemples concrets et des exercices.
+                visuellement, étape par étape. Tu peux poser des questions de suivi pour approfondir.
               </p>
 
               <div className="w-full max-w-2xl grid sm:grid-cols-2 gap-3">
@@ -350,82 +427,99 @@ export default function AITutor() {
               </div>
             </div>
           ) : (
-            /* Whiteboard display */
-            <div className="space-y-4 animate-fade-in">
-              {/* Question */}
-              <div className="flex items-start gap-3 mb-6">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <GraduationCap className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-1">Ta question</p>
-                  <p className="text-sm font-semibold">{currentQuestion}</p>
-                </div>
-              </div>
-
-              {/* Loading state */}
-              {isLoading && sections.length === 0 && (
-                <div className="flex flex-col items-center py-12 gap-4 animate-fade-in">
-                  <div className="relative">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/10 flex items-center justify-center">
-                      <Brain className="w-8 h-8 text-primary" />
+            <div className="space-y-6">
+              {/* Previous conversation entries */}
+              {conversation.map((entry, entryIdx) => (
+                <div key={entryIdx} className="animate-fade-in">
+                  {/* Question bubble */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <GraduationCap className="w-4 h-4 text-primary" />
                     </div>
-                    <Loader2 className="w-20 h-20 text-primary/20 animate-spin absolute -top-2 -left-2" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">
+                        {entryIdx === 0 ? "Ta question" : "Question de suivi"}
+                      </p>
+                      <div className="inline-block bg-primary/[0.06] border border-primary/10 rounded-2xl rounded-tl-md px-4 py-2.5">
+                        <p className="text-sm font-medium">{entry.question}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium">Le prof prépare le tableau...</p>
-                    <p className="text-xs text-muted-foreground mt-1">Analyse et structuration en cours</p>
+
+                  {/* Response sections */}
+                  <div className="ml-11">
+                    <WhiteboardSections sections={entry.sections} />
+                  </div>
+
+                  {/* Separator between exchanges */}
+                  {entryIdx < conversation.length - 1 && (
+                    <div className="my-8 flex items-center gap-3">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+                      <MessageCircle className="w-3.5 h-3.5 text-muted-foreground/25" />
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Currently streaming response */}
+              {(isLoading || streamingResponse) && (
+                <div className="animate-fade-in">
+                  {/* Current question bubble */}
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <GraduationCap className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">
+                        {conversation.length === 0 ? "Ta question" : "Question de suivi"}
+                      </p>
+                      <div className="inline-block bg-primary/[0.06] border border-primary/10 rounded-2xl rounded-tl-md px-4 py-2.5">
+                        <p className="text-sm font-medium">{currentQuestion}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ml-11">
+                    {/* Loading state */}
+                    {isLoading && streamingSections.length === 0 && (
+                      <div className="flex flex-col items-center py-10 gap-3 animate-fade-in">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/10 flex items-center justify-center">
+                            <Brain className="w-7 h-7 text-primary" />
+                          </div>
+                          <Loader2 className="w-18 h-18 text-primary/20 animate-spin absolute -top-2 -left-2" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium">Le prof prépare le tableau...</p>
+                          <p className="text-xs text-muted-foreground mt-1">Analyse et structuration en cours</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Streaming sections */}
+                    {streamingSections.length > 0 && (
+                      <WhiteboardSections sections={streamingSections} />
+                    )}
+
+                    {/* Streaming indicator */}
+                    {isLoading && streamingSections.length > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in py-2 mt-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Le prof continue d'écrire...</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Sections */}
-              <div className="grid gap-5">
-                {sections.map((section, idx) => {
-                  const style = SECTION_STYLES[section.emoji] || SECTION_STYLES["📐"];
-                  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        "rounded-2xl border p-0 overflow-hidden transition-all animate-fade-in shadow-sm",
-                        style.bg,
-                        style.border,
-                        style.glow
-                      )}
-                      style={{ animationDelay: `${idx * 120}ms` }}
-                    >
-                      {/* Section header bar */}
-                      <div className={cn("flex items-center gap-3 px-5 py-3 border-b", style.border)}>
-                        <div className={cn("w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center", style.icon)}>
-                          <span className="text-base">{section.emoji}</span>
-                        </div>
-                        <h3 className={cn("font-bold text-sm tracking-tight", style.accent)}>{section.title}</h3>
-                      </div>
-                      {/* Section body */}
-                      <div className="px-5 py-4">
-                        <div className="max-w-none text-sm">
-                          <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Streaming indicator */}
-              {isLoading && sections.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in py-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Le prof continue d'écrire...</span>
-                </div>
-              )}
-
-              {/* New question prompt */}
-              {!isLoading && sections.length > 0 && (
-                <div className="pt-4 border-t border-border/20 mt-6 animate-fade-in">
-                  <p className="text-xs text-muted-foreground text-center">
-                    Tu as une autre question ? Pose-la ci-dessous 👇
-                  </p>
+              {/* Follow-up prompt */}
+              {!isLoading && conversation.length > 0 && !streamingResponse && (
+                <div className="pt-3 mt-4 animate-fade-in">
+                  <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>Pose une question de suivi pour approfondir 👇</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -442,7 +536,7 @@ export default function AITutor() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Pose ta question au tableau blanc..."
+              placeholder={conversation.length > 0 ? "Pose une question de suivi..." : "Pose ta question au tableau blanc..."}
               rows={1}
               className="flex-1 resize-none rounded-2xl border border-border/40 bg-card/60 px-4 py-3 text-sm placeholder:text-muted-foreground/50 outline-none focus:border-primary/40 focus:bg-card/80 transition-all max-h-32 overflow-auto"
               style={{ minHeight: "44px" }}
@@ -458,7 +552,7 @@ export default function AITutor() {
               className={cn(
                 "p-3 rounded-2xl flex-shrink-0 transition-all duration-200",
                 query.trim() && !isLoading
-                  ? "bg-gradient-to-r from-primary to-secondary text-white shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                  ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md hover:shadow-lg hover:-translate-y-0.5"
                   : "bg-muted/40 text-muted-foreground/40"
               )}
             >
