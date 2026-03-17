@@ -380,24 +380,36 @@ export default function AITutor() {
               )}
 
               {/* Sections */}
-              <div className="grid gap-4">
+              <div className="grid gap-5">
                 {sections.map((section, idx) => {
                   const style = SECTION_STYLES[section.emoji] || SECTION_STYLES["📐"];
                   return (
                     <div
                       key={idx}
                       className={cn(
-                        "rounded-2xl border p-5 transition-all animate-fade-in",
+                        "rounded-2xl border p-0 overflow-hidden transition-all animate-fade-in shadow-sm",
                         style.bg,
-                        style.border
+                        style.border,
+                        style.glow
                       )}
-                      style={{ animationDelay: `${idx * 100}ms` }}
+                      style={{ animationDelay: `${idx * 120}ms` }}
                     >
-                      <div className="flex items-center gap-2.5 mb-3">
-                        <span className="text-xl">{section.emoji}</span>
-                        <h3 className={cn("font-bold text-base", style.accent)}>{section.title}</h3>
+                      {/* Section header bar */}
+                      <div className={cn("flex items-center gap-3 px-5 py-3 border-b", style.border)}>
+                        <div className={cn("w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center", style.icon)}>
+                          <span className="text-base">{section.emoji}</span>
+                        </div>
+                        <h3 className={cn("font-bold text-sm tracking-tight", style.accent)}>{section.title}</h3>
                       </div>
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_table]:text-xs [&_th]:bg-muted/30 [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:border [&_table]:border-border/30 [&_strong]:text-foreground [&_code]:text-xs [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_li]:leading-relaxed [&_p]:leading-relaxed">
+                      {/* Section body */}
+                      <div className="px-5 py-4">
+                        <div className="max-w-none text-sm">
+                          <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                         <ReactMarkdown>{section.body}</ReactMarkdown>
                       </div>
                     </div>
