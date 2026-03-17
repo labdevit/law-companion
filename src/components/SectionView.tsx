@@ -77,7 +77,7 @@ export function SectionView({ section, highlightsEnabled, onComplete, previousSc
           {section.quiz.length > 0 && (
             <button
               onClick={() => setViewMode("quiz")}
-              className="w-full p-5 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 hover:from-primary/10 hover:to-secondary/10 transition-all duration-300 group animate-pulse-glow"
+              className="w-full p-5 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 hover:from-primary/10 hover:to-secondary/10 transition-all duration-300 group"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
