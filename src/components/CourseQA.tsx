@@ -223,7 +223,7 @@ export function CourseQA({ course }: CourseQAProps) {
         className="fixed bottom-6 right-6 z-50 group"
         title="Discuter avec votre prof virtuel"
       >
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-secondary to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center animate-pulse-glow">
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-secondary to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center">
           <GraduationCap className="w-6 h-6 group-hover:scale-110 transition-transform" />
         </div>
         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent flex items-center justify-center">

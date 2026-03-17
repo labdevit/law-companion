@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Brain, ArrowLeft, GraduationCap, Undo2 } from "lucide-react";
+import { Sparkles, Menu, X, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Brain, ArrowLeft, GraduationCap, Undo2, Flame, Target, Trophy, Zap } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
+import { useStreak } from "@/hooks/useStreak";
 import { useTheme } from "@/hooks/useTheme";
 import { CourseCard } from "@/components/CourseCard";
 import { ChapterNav } from "@/components/ChapterNav";
@@ -12,6 +13,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProgressToast } from "@/components/ProgressToast";
 import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
 import { CourseQA } from "@/components/CourseQA";
+import { AppNav } from "@/components/AppNav";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
@@ -60,6 +62,7 @@ const Index = () => {
   }, [allCourses]);
 
   const stats = getStats(allCourseSections.length);
+  const { currentStreak, dailyGoal, todayCompleted, allAchievements, recordStudy } = useStreak(stats.sectionsCompleted);
   const [toastType, setToastType] = useState<ToastType>(null);
 
   const handleSelectCourse = (courseId: string) => {
@@ -112,8 +115,9 @@ const Index = () => {
     const currentProgress = getSectionProgress(sectionId);
     const wasCompleted = currentProgress?.completed || false;
     toggleSectionComplete(sectionId);
+    if (!wasCompleted) recordStudy();
     setToastType(wasCompleted ? "uncomplete" : "complete");
-  }, [getSectionProgress, toggleSectionComplete]);
+  }, [getSectionProgress, toggleSectionComplete, recordStudy]);
 
   // ═══════════════════════════════════════════
   // HOME VIEW
@@ -123,7 +127,7 @@ const Index = () => {
     const greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
 
     return (
-      <div className="min-h-screen p-4 lg:p-8">
+      <div className="min-h-screen p-4 lg:p-8 pb-24">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
           <header className="mb-8 animate-fade-in">
@@ -163,6 +167,66 @@ const Index = () => {
               totalSections={stats.totalSections}
             />
           </header>
+
+          {/* Gamification row */}
+          <div className="grid grid-cols-3 gap-3 mb-6 animate-fade-in" style={{ animationDelay: "50ms" }}>
+            {/* Streak */}
+            <div className="p-4 rounded-2xl border border-orange-500/20 bg-orange-500/5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                <Flame className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xl font-black">{currentStreak}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">jours de suite</p>
+              </div>
+            </div>
+
+            {/* Daily goal */}
+            <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xl font-black">{todayCompleted}<span className="text-sm font-medium text-muted-foreground">/{dailyGoal}</span></p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">objectif du jour</p>
+              </div>
+            </div>
+
+            {/* Achievements */}
+            <div className="p-4 rounded-2xl border border-secondary/20 bg-secondary/5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-secondary" />
+              </div>
+              <div>
+                <p className="text-xl font-black">{allAchievements.filter(a => a.unlocked).length}<span className="text-sm font-medium text-muted-foreground">/{allAchievements.length}</span></p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">badges</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Achievements row */}
+          {allAchievements.some(a => a.unlocked) && (
+            <div className="mb-6 animate-fade-in" style={{ animationDelay: "80ms" }}>
+              <p className="text-xs text-muted-foreground font-medium mb-2.5 uppercase tracking-wider">Tes badges</p>
+              <div className="flex gap-2 flex-wrap">
+                {allAchievements.map((a) => (
+                  <div
+                    key={a.id}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all",
+                      a.unlocked
+                        ? "border-secondary/20 bg-secondary/5 text-foreground"
+                        : "border-border/20 bg-muted/10 text-muted-foreground/40"
+                    )}
+                    title={a.label}
+                  >
+                    <span className={cn("text-base", !a.unlocked && "grayscale opacity-30")}>{a.icon}</span>
+                    <span className={cn(!a.unlocked && "line-through")}>{a.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Course grid */}
           <section className="animate-fade-in" style={{ animationDelay: "100ms" }}>
@@ -252,6 +316,7 @@ const Index = () => {
             onImport={(data) => { addCourse(data); setShowCourseImporter(false); }}
           />
         </div>
+        <AppNav />
       </div>
     );
   }
