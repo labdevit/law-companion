@@ -410,11 +410,6 @@ export default function AITutor() {
                     </div>
                   );
                 })}
-                        <ReactMarkdown>{section.body}</ReactMarkdown>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
 
               {/* Streaming indicator */}
