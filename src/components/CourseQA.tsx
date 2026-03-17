@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, Send, X, GraduationCap, User, Loader2, Minimize2, Maximize2, Sparkles, BookOpen } from "lucide-react";
+import { MessageCircle, Send, X, GraduationCap, User, Loader2, Minimize2, Maximize2, Sparkles, BookOpen, Paperclip, FileText, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Course, getAllSections } from "@/data/courses";
 import ReactMarkdown from "react-markdown";
@@ -8,10 +8,18 @@ interface CourseQAProps {
   course: Course;
 }
 
+interface AttachedFile {
+  name: string;
+  type: string;
+  base64: string;
+  size: number;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  fileName?: string;
 }
 
 const TYPING_PHRASES = [
@@ -54,8 +62,10 @@ export function CourseQA({ course }: CourseQAProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const courseContent = getAllSections(course)
     .map((s) => `## ${s.title}\n${s.content.replace(/<[^>]+>/g, "")}`)
@@ -69,13 +79,50 @@ export function CourseQA({ course }: CourseQAProps) {
     setMessages([]);
   }, [course.id]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert("Le fichier est trop volumineux (max 10 Mo)");
+      return;
+    }
+
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Seuls les fichiers PDF et DOCX sont acceptés");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      setAttachedFile({ name: file.name, type: file.type, base64, size: file.size });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const sendMessage = async () => {
     const question = input.trim();
-    if (!question || isLoading) return;
+    if (!question && !attachedFile) return;
+    if (isLoading) return;
 
-    const userMsg: Message = { role: "user", content: question, timestamp: new Date() };
+    const userMsg: Message = {
+      role: "user",
+      content: question || (attachedFile ? `📎 ${attachedFile.name}` : ""),
+      timestamp: new Date(),
+      fileName: attachedFile?.name,
+    };
     setMessages((prev) => [...prev, userMsg]);
+
+    const fileToSend = attachedFile;
     setInput("");
+    setAttachedFile(null);
     setIsLoading(true);
 
     let assistantContent = "";
@@ -101,10 +148,17 @@ export function CourseQA({ course }: CourseQAProps) {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({
-            question,
+            question: question || `Analyse ce document : ${fileToSend?.name || ""}`,
             courseContent,
             courseTitle: course.title,
             history: messages.map(({ role, content }) => ({ role, content })),
+            ...(fileToSend && {
+              file: {
+                name: fileToSend.name,
+                type: fileToSend.type,
+                base64: fileToSend.base64,
+              },
+            }),
           }),
         }
       );
@@ -313,7 +367,15 @@ export function CourseQA({ course }: CourseQAProps) {
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
-                    <p>{msg.content}</p>
+                    <>
+                      {msg.fileName && (
+                        <div className="flex items-center gap-1.5 mb-1.5 text-xs opacity-80">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span className="truncate max-w-[180px]">{msg.fileName}</span>
+                        </div>
+                      )}
+                      <p>{msg.content}</p>
+                    </>
                   )}
                 </div>
               </div>
@@ -329,7 +391,35 @@ export function CourseQA({ course }: CourseQAProps) {
 
       {/* Input area */}
       <div className="p-3 border-t border-border/40 bg-muted/20">
+        {/* Attached file indicator */}
+        {attachedFile && (
+          <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-primary/5 border border-primary/20 text-sm">
+            <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+            <span className="truncate text-foreground/80">{attachedFile.name}</span>
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+              {(attachedFile.size / 1024).toFixed(0)} Ko
+            </span>
+            <button onClick={() => setAttachedFile(null)} className="ml-auto p-0.5 rounded-full hover:bg-destructive/10 transition-colors">
+              <XCircle className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+            </button>
+          </div>
+        )}
         <div className="flex gap-2 items-end">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="p-3 rounded-2xl hover:bg-muted/60 transition-colors flex-shrink-0"
+            title="Joindre un document PDF ou DOCX"
+          >
+            <Paperclip className="w-4 h-4 text-muted-foreground" />
+          </button>
           <textarea
             ref={inputRef}
             value={input}
@@ -342,10 +432,10 @@ export function CourseQA({ course }: CourseQAProps) {
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !attachedFile) || isLoading}
             className={cn(
               "p-3 rounded-2xl transition-all flex-shrink-0 shadow-sm",
-              input.trim() && !isLoading
+              (input.trim() || attachedFile) && !isLoading
                 ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground hover:shadow-md hover:scale-105"
                 : "bg-muted text-muted-foreground"
             )}
@@ -354,7 +444,7 @@ export function CourseQA({ course }: CourseQAProps) {
           </button>
         </div>
         <p className="text-[10px] text-muted-foreground/50 text-center mt-2">
-          Les réponses sont basées uniquement sur le contenu de votre cours
+          PDF et DOCX acceptés · Réponses basées sur votre cours
         </p>
       </div>
     </div>
