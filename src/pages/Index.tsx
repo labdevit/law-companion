@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Brain, ArrowLeft, GraduationCap } from "lucide-react";
+import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Brain, ArrowLeft, GraduationCap, Undo2 } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
@@ -36,9 +36,14 @@ const Index = () => {
     toggleSectionComplete,
   } = useStudyProgress();
 
-  const { customCourses, addCourse, deleteCourse, duplicateCourse } = useCustomCourses();
+  const { customCourses, hiddenCourseIds, addCourse, deleteCourse, hideCourse, restoreAllCourses, duplicateCourse } = useCustomCourses();
 
-  const allCourses: Course[] = useMemo(() => [...COURSES, ...customCourses], [customCourses]);
+  const isCustomCourse = (courseId: string) => customCourses.some((c) => c.id === courseId);
+
+  const allCourses: Course[] = useMemo(() => {
+    const builtIn = COURSES.filter((c) => !hiddenCourseIds.includes(c.id));
+    return [...builtIn, ...customCourses];
+  }, [customCourses, hiddenCourseIds]);
 
   const activeCourse = useMemo(
     () => allCourses.find((c) => c.id === activeCourseId) || null,
@@ -66,10 +71,21 @@ const Index = () => {
     setSidebarOpen(false);
   };
 
-  const handleDeleteCustomCourse = (courseId: string, e: React.MouseEvent) => {
+  const handleDeleteCourse = (courseId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("Supprimer ce cours personnalisé ?")) {
-      deleteCourse(courseId);
+    const isCustom = isCustomCourse(courseId);
+    const message = isCustom
+      ? "Supprimer ce cours définitivement ?"
+      : "Masquer ce cours ? Vous pourrez le restaurer plus tard.";
+    if (confirm(message)) {
+      if (isCustom) {
+        deleteCourse(courseId);
+      } else {
+        hideCourse(courseId);
+      }
+      if (activeCourseId === courseId) {
+        setActiveCourseId(null);
+      }
     }
   };
 
@@ -77,8 +93,6 @@ const Index = () => {
     e.stopPropagation();
     duplicateCourse(courseId);
   };
-
-  const isCustomCourse = (courseId: string) => customCourses.some((c) => c.id === courseId);
 
   const handleValidateQuiz = (score: number, total: number) => {
     if (activeSectionId) {
@@ -158,6 +172,16 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground mt-0.5">{allCourses.length} cours disponibles</p>
               </div>
               <div className="flex gap-2">
+                {hiddenCourseIds.length > 0 && (
+                  <button
+                    onClick={restoreAllCourses}
+                    className="flex items-center gap-2 px-3 py-2.5 text-xs rounded-xl border border-border/40 bg-card/60 hover:bg-muted/50 transition-all font-medium text-muted-foreground"
+                    title="Restaurer les cours masqués"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Restaurer ({hiddenCourseIds.length})</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setShowCourseImporter(true)}
                   className="flex items-center gap-2 px-4 py-2.5 text-sm rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 text-primary hover:from-primary/15 hover:to-secondary/15 transition-all border border-primary/15 font-medium"
@@ -188,8 +212,8 @@ const Index = () => {
                       isActive={false}
                       onClick={() => handleSelectCourse(course.id)}
                     />
-                    {isCustom && (
-                      <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      {isCustom && (
                         <button
                           onClick={(e) => handleDuplicateCourse(course.id, e)}
                           className="p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-border/50 hover:bg-muted/80 transition-colors"
@@ -197,15 +221,15 @@ const Index = () => {
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={(e) => handleDeleteCustomCourse(course.id, e)}
-                          className="p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+                      )}
+                      <button
+                        onClick={(e) => handleDeleteCourse(course.id, e)}
+                        className="p-1.5 rounded-lg bg-background/90 backdrop-blur-sm border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                        title={isCustom ? "Supprimer" : "Masquer"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     {isCustom && (
                       <span className="absolute bottom-3 right-3 text-[10px] px-2 py-0.5 rounded-md bg-primary/15 text-primary font-medium border border-primary/20">
                         IA
