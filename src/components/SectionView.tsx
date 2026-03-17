@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, HelpCircle, ArrowRight, RotateCcw, Trophy, CheckCircle } from "lucide-react";
+import { BookOpen, HelpCircle, ArrowRight, ArrowLeft, RotateCcw, Trophy, CheckCircle, GraduationCap, Sparkles } from "lucide-react";
 import { Section } from "@/data/courses";
 import { CourseContent } from "./CourseContent";
 import { QuizSection } from "./QuizSection";
@@ -47,19 +47,24 @@ export function SectionView({ section, highlightsEnabled, onComplete, previousSc
     setLastScore(null);
   }
 
+  const scorePercentage = lastScore ? Math.round((lastScore.score / lastScore.total) * 100) : 0;
+  const passed = scorePercentage >= 70;
+
   return (
-    <div className="h-full">
+    <div className="max-w-3xl mx-auto animate-fade-in">
       {viewMode === "content" ? (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Content card */}
-          <section className="rounded-2xl border border-border/50 bg-card/50 p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <BookOpen className="w-4 h-4" />
-                <span>Cours</span>
+          <section className="rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm p-6 lg:p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                </div>
+                <span className="font-medium">Cours</span>
               </div>
               {previousScore?.completed && (
-                <div className="flex items-center gap-1 text-xs text-secondary">
+                <div className="flex items-center gap-1.5 text-xs text-secondary bg-secondary/10 px-2.5 py-1 rounded-lg">
                   <CheckCircle className="w-3.5 h-3.5" />
                   Validé ({previousScore.score}/{previousScore.total})
                 </div>
@@ -72,90 +77,103 @@ export function SectionView({ section, highlightsEnabled, onComplete, previousSc
           {section.quiz.length > 0 && (
             <button
               onClick={() => setViewMode("quiz")}
-              className="w-full p-4 rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5 hover:from-primary/10 hover:to-secondary/10 transition-all group"
+              className="w-full p-5 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 hover:from-primary/10 hover:to-secondary/10 transition-all duration-300 group animate-pulse-glow"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <HelpCircle className="w-5 h-5 text-primary" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <GraduationCap className="w-6 h-6 text-primary" />
                   </div>
                   <div className="text-left">
-                    <p className="font-medium text-sm">Prêt pour le Quiz ?</p>
-                    <p className="text-xs text-muted-foreground">
-                      {section.quiz.length} question{section.quiz.length > 1 ? "s" : ""} pour tester vos connaissances
+                    <p className="font-bold text-sm">Prêt pour le Quiz ? 🎯</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {section.quiz.length} question{section.quiz.length > 1 ? "s" : ""} • Teste tes connaissances
                     </p>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-primary font-medium hidden sm:block">Commencer</span>
+                  <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5 animate-fade-in">
           {/* Back button */}
           <button
             onClick={handleBackToContent}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <BookOpen className="w-4 h-4" />
-            ← Retour au cours
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Retour au cours
           </button>
 
           {/* Quiz section */}
-          <section className="rounded-2xl border border-border/50 bg-card/50 p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <HelpCircle className="w-4 h-4" />
-                <span>Quiz - {section.title}</span>
+          <section className="rounded-2xl border border-border/30 bg-card/60 backdrop-blur-sm p-6 lg:p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2.5 text-sm">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <HelpCircle className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <span className="font-medium">Quiz</span>
+                  <span className="text-muted-foreground ml-1.5">— {section.title}</span>
+                </div>
               </div>
-              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-medium">
                 {section.quiz.length} question{section.quiz.length > 1 ? "s" : ""}
               </span>
             </div>
 
             {quizCompleted && lastScore ? (
-              <div className="text-center py-8">
-                <div className={cn(
-                  "w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center",
-                  lastScore.score / lastScore.total >= 0.7 
-                    ? "bg-secondary/20" 
-                    : "bg-accent/20"
-                )}>
-                  <Trophy className={cn(
-                    "w-10 h-10",
-                    lastScore.score / lastScore.total >= 0.7 
-                      ? "text-secondary" 
-                      : "text-accent"
-                  )} />
+              <div className="text-center py-10 animate-fade-in">
+                {/* Score circle */}
+                <div className="relative w-28 h-28 mx-auto mb-6">
+                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 112 112">
+                    <circle cx="56" cy="56" r="48" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
+                    <circle
+                      cx="56" cy="56" r="48"
+                      fill="none"
+                      stroke={passed ? "hsl(var(--secondary))" : "hsl(var(--warning))"}
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 48}`}
+                      strokeDashoffset={`${2 * Math.PI * 48 * (1 - scorePercentage / 100)}`}
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-black">{lastScore.score}/{lastScore.total}</span>
+                    <span className="text-[10px] text-muted-foreground">{scorePercentage}%</span>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold mb-2">
-                  {lastScore.score}/{lastScore.total}
-                </h3>
-                <p className={cn(
-                  "text-sm mb-6",
-                  lastScore.score / lastScore.total >= 0.7 
-                    ? "text-secondary" 
-                    : "text-accent"
+
+                <div className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-6",
+                  passed ? "bg-secondary/10 text-secondary" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
                 )}>
-                  {lastScore.score / lastScore.total >= 0.7 
-                    ? "Excellent ! Section validée ✓" 
-                    : "Encore un effort ! Il faut 70% pour valider."
-                  }
-                </p>
+                  {passed ? (
+                    <><Sparkles className="w-4 h-4" /> Section validée !</>
+                  ) : (
+                    <><ArrowRight className="w-4 h-4" /> Il faut 70% pour valider</>
+                  )}
+                </div>
+
                 <div className="flex gap-3 justify-center">
                   <button
                     onClick={handleBackToContent}
-                    className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted/50"
+                    className="px-5 py-2.5 text-sm rounded-xl border border-border/50 hover:bg-muted/50 transition-all flex items-center gap-2"
                   >
-                    <BookOpen className="w-4 h-4 inline mr-2" />
+                    <BookOpen className="w-4 h-4" />
                     Revoir le cours
                   </button>
                   <button
                     onClick={handleRetakeQuiz}
-                    className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="px-5 py-2.5 text-sm rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center gap-2"
                   >
-                    <RotateCcw className="w-4 h-4 inline mr-2" />
+                    <RotateCcw className="w-4 h-4" />
                     Recommencer
                   </button>
                 </div>
