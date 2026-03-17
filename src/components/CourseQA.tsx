@@ -79,13 +79,50 @@ export function CourseQA({ course }: CourseQAProps) {
     setMessages([]);
   }, [course.id]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert("Le fichier est trop volumineux (max 10 Mo)");
+      return;
+    }
+
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Seuls les fichiers PDF et DOCX sont acceptés");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      setAttachedFile({ name: file.name, type: file.type, base64, size: file.size });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const sendMessage = async () => {
     const question = input.trim();
-    if (!question || isLoading) return;
+    if (!question && !attachedFile) return;
+    if (isLoading) return;
 
-    const userMsg: Message = { role: "user", content: question, timestamp: new Date() };
+    const userMsg: Message = {
+      role: "user",
+      content: question || (attachedFile ? `📎 ${attachedFile.name}` : ""),
+      timestamp: new Date(),
+      fileName: attachedFile?.name,
+    };
     setMessages((prev) => [...prev, userMsg]);
+
+    const fileToSend = attachedFile;
     setInput("");
+    setAttachedFile(null);
     setIsLoading(true);
 
     let assistantContent = "";
