@@ -42,7 +42,8 @@ function TypingIndicator() {
   );
 }
 
-function TimeStamp({ date }: { date: Date }) {
+function TimeStamp({ date }: { date?: Date }) {
+  if (!date) return null;
   const time = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return <span className="text-[10px] text-muted-foreground/60 px-1">{time}</span>;
 }
