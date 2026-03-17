@@ -28,13 +28,34 @@ const SECTION_STYLES: Record<string, { bg: string; border: string; accent: strin
   "✅": { bg: "bg-secondary/[0.04]", border: "border-secondary/15", accent: "text-secondary", glow: "shadow-secondary/5", icon: "from-secondary/20 to-secondary/5" },
 };
 
+/** Strip any leftover LaTeX artifacts like $...$ or \frac etc */
+function cleanLatex(text: string): string {
+  return text
+    // Remove $...$ wrappers but keep inner content
+    .replace(/\$([^$]+)\$/g, '$1')
+    // Clean \frac{a}{b} -> a/b
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 ÷ $2')
+    // Clean \sum, \text, etc
+    .replace(/\\(sum|text|left|right|times|cdot)/g, '')
+    // Clean ^{n} -> puissance n
+    .replace(/\^{([^}]+)}/g, ' puissance $1')
+    // Clean _{n} -> subscript
+    .replace(/_{([^}]+)}/g, '$1')
+    // Clean remaining backslash commands
+    .replace(/\\[a-zA-Z]+/g, '')
+    // Clean double spaces
+    .replace(/\s{2,}/g, ' ');
+}
+
 function parseSections(content: string): WhiteboardSection[] {
-  if (!content.includes("## ")) {
-    return content.trim() ? [{ emoji: "📐", title: "Réponse", body: content }] : [];
+  const cleaned = cleanLatex(content);
+  
+  if (!cleaned.includes("## ")) {
+    return cleaned.trim() ? [{ emoji: "📐", title: "Réponse", body: cleaned }] : [];
   }
 
   const sections: WhiteboardSection[] = [];
-  const parts = content.split(/^## /gm).filter(Boolean);
+  const parts = cleaned.split(/^## /gm).filter(Boolean);
 
   for (const part of parts) {
     const firstNewline = part.indexOf("\n");
@@ -63,21 +84,21 @@ const SUGGESTIONS = [
 /* Custom markdown components for better visual rendering */
 const MarkdownComponents = {
   table: ({ children, ...props }: any) => (
-    <div className="my-4 overflow-x-auto rounded-xl border border-border/40 bg-card/50">
+    <div className="my-5 overflow-x-auto rounded-xl border border-border/30 shadow-sm">
       <table className="w-full text-sm border-collapse" {...props}>{children}</table>
     </div>
   ),
   thead: ({ children, ...props }: any) => (
-    <thead className="bg-muted/40 border-b border-border/40" {...props}>{children}</thead>
+    <thead className="bg-primary/[0.06] dark:bg-primary/[0.1]" {...props}>{children}</thead>
   ),
   th: ({ children, ...props }: any) => (
-    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground" {...props}>{children}</th>
+    <th className="px-4 py-3 text-left text-xs font-bold text-primary border-b-2 border-primary/20 whitespace-nowrap" {...props}>{children}</th>
   ),
   td: ({ children, ...props }: any) => (
-    <td className="px-4 py-2.5 border-t border-border/20 text-foreground/90" {...props}>{children}</td>
+    <td className="px-4 py-3 border-b border-border/15 text-foreground/90 tabular-nums" {...props}>{children}</td>
   ),
   tr: ({ children, ...props }: any) => (
-    <tr className="transition-colors hover:bg-muted/20" {...props}>{children}</tr>
+    <tr className="transition-colors even:bg-muted/[0.04] hover:bg-primary/[0.03]" {...props}>{children}</tr>
   ),
   strong: ({ children, ...props }: any) => (
     <strong className="font-bold text-foreground" {...props}>{children}</strong>
