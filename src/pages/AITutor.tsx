@@ -84,63 +84,109 @@ const SUGGESTIONS = [
 /* Custom markdown components for better visual rendering */
 const MarkdownComponents = {
   table: ({ children, ...props }: any) => (
-    <div className="my-5 overflow-x-auto rounded-xl border border-border/30 shadow-sm">
-      <table className="w-full text-sm border-collapse" {...props}>{children}</table>
+    <div className="my-5 overflow-x-auto rounded-2xl border-2 border-primary/15 shadow-md bg-card/80">
+      <table className="w-full text-sm" {...props}>{children}</table>
     </div>
   ),
   thead: ({ children, ...props }: any) => (
-    <thead className="bg-primary/[0.06] dark:bg-primary/[0.1]" {...props}>{children}</thead>
+    <thead className="bg-gradient-to-r from-primary/10 to-primary/[0.04]" {...props}>{children}</thead>
   ),
   th: ({ children, ...props }: any) => (
-    <th className="px-4 py-3 text-left text-xs font-bold text-primary border-b-2 border-primary/20 whitespace-nowrap" {...props}>{children}</th>
+    <th className="px-5 py-3.5 text-left text-xs font-extrabold uppercase tracking-widest text-primary border-b-2 border-primary/20 whitespace-nowrap" {...props}>{children}</th>
   ),
-  td: ({ children, ...props }: any) => (
-    <td className="px-4 py-3 border-b border-border/15 text-foreground/90 tabular-nums" {...props}>{children}</td>
-  ),
+  td: ({ children, ...props }: any) => {
+    // Detect if content contains bold markers for result rows
+    const text = typeof children === 'string' ? children : '';
+    const isTotal = text.toLowerCase().includes('total') || text.toLowerCase().includes('van') || text.toLowerCase().includes('résultat');
+    return (
+      <td className={cn(
+        "px-5 py-3 border-b border-border/10 tabular-nums",
+        isTotal ? "font-bold text-foreground bg-primary/[0.04]" : "text-foreground/85"
+      )} {...props}>{children}</td>
+    );
+  },
   tr: ({ children, ...props }: any) => (
-    <tr className="transition-colors even:bg-muted/[0.04] hover:bg-primary/[0.03]" {...props}>{children}</tr>
+    <tr className="transition-colors even:bg-muted/[0.03] hover:bg-primary/[0.04]" {...props}>{children}</tr>
   ),
-  strong: ({ children, ...props }: any) => (
-    <strong className="font-bold text-foreground" {...props}>{children}</strong>
-  ),
+  strong: ({ children, ...props }: any) => {
+    const text = typeof children === 'string' ? children : '';
+    // Highlight key results with a badge-like style
+    const isResult = text.includes('FCFA') || text.includes('Résultat') || text.includes('VAN') || text.match(/^[\d\s,.]+$/);
+    if (isResult) {
+      return (
+        <strong className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-secondary/10 text-secondary font-extrabold border border-secondary/20" {...props}>
+          {children}
+        </strong>
+      );
+    }
+    return (
+      <strong className="font-bold text-foreground" {...props}>{children}</strong>
+    );
+  },
   ul: ({ children, ...props }: any) => (
-    <ul className="my-3 space-y-2 list-none pl-0" {...props}>{children}</ul>
+    <ul className="my-4 space-y-3 list-none pl-0" {...props}>{children}</ul>
   ),
   ol: ({ children, ...props }: any) => (
-    <ol className="my-3 space-y-2 list-none pl-0 counter-reset-item" {...props}>{children}</ol>
+    <ol className="my-4 space-y-3 list-none pl-0" {...props}>
+      {/* Add numbered styling */}
+      {Array.isArray(children) ? children.map((child: any, i: number) => {
+        if (!child) return null;
+        return (
+          <li key={i} className="flex items-start gap-3 text-foreground/85 leading-relaxed">
+            <span className="mt-0.5 w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0">
+              {i + 1}
+            </span>
+            <span className="flex-1 pt-0.5">{typeof child === 'object' && child?.props?.children ? child.props.children : child}</span>
+          </li>
+        );
+      }) : children}
+    </ol>
   ),
   li: ({ children, ordered, ...props }: any) => (
-    <li className="flex items-start gap-2.5 text-foreground/85 leading-relaxed" {...props}>
-      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/50 flex-shrink-0" />
+    <li className="flex items-start gap-3 text-foreground/85 leading-relaxed" {...props}>
+      <span className="mt-2 w-2 h-2 rounded-full bg-gradient-to-br from-primary to-secondary flex-shrink-0" />
       <span className="flex-1">{children}</span>
     </li>
   ),
-  p: ({ children, ...props }: any) => (
-    <p className="my-2.5 leading-[1.8] text-foreground/85" {...props}>{children}</p>
-  ),
+  p: ({ children, ...props }: any) => {
+    const text = typeof children === 'string' ? children : '';
+    // Detect conclusion/result paragraphs
+    const isConclusion = text.includes('Conclusion') || text.includes('Résultat') || text.includes('Interprétation');
+    if (isConclusion) {
+      return (
+        <div className="my-4 p-4 rounded-xl bg-secondary/[0.06] border border-secondary/15 flex items-start gap-3" {...props}>
+          <span className="text-lg mt-0.5">✨</span>
+          <p className="text-sm leading-relaxed text-foreground/90 font-medium flex-1">{children}</p>
+        </div>
+      );
+    }
+    return (
+      <p className="my-3 leading-[1.9] text-foreground/80 text-[13.5px]" {...props}>{children}</p>
+    );
+  },
   h3: ({ children, ...props }: any) => (
-    <h3 className="text-sm font-bold text-foreground mt-4 mb-2 flex items-center gap-2" {...props}>
-      <span className="w-1 h-4 rounded-full bg-primary inline-block" />
+    <h3 className="text-sm font-bold text-foreground mt-5 mb-2.5 flex items-center gap-2.5 pb-1.5 border-b border-border/20" {...props}>
+      <span className="w-1.5 h-5 rounded-full bg-gradient-to-b from-primary to-secondary inline-block" />
       {children}
     </h3>
   ),
   h4: ({ children, ...props }: any) => (
-    <h4 className="text-sm font-semibold text-foreground/90 mt-3 mb-1.5" {...props}>{children}</h4>
+    <h4 className="text-sm font-semibold text-foreground/90 mt-4 mb-2" {...props}>{children}</h4>
   ),
   blockquote: ({ children, ...props }: any) => (
-    <blockquote className="my-3 pl-4 border-l-2 border-primary/30 bg-primary/[0.03] rounded-r-xl py-2 pr-3 text-foreground/80 italic" {...props}>{children}</blockquote>
+    <blockquote className="my-4 pl-4 border-l-3 border-primary/30 bg-primary/[0.04] rounded-r-xl py-3 pr-4 text-foreground/80" {...props}>{children}</blockquote>
   ),
   code: ({ children, className, ...props }: any) => {
     const isInline = !className;
     if (isInline) {
-      return <code className="text-xs bg-muted/60 text-foreground px-1.5 py-0.5 rounded-md font-mono" {...props}>{children}</code>;
+      return <code className="text-xs bg-primary/[0.08] text-primary px-2 py-1 rounded-lg font-semibold" {...props}>{children}</code>;
     }
     return (
-      <code className="block my-3 p-4 rounded-xl bg-muted/40 border border-border/30 text-xs font-mono overflow-x-auto" {...props}>{children}</code>
+      <code className="block my-4 p-4 rounded-xl bg-muted/40 border border-border/30 text-xs font-mono overflow-x-auto leading-relaxed" {...props}>{children}</code>
     );
   },
   hr: () => (
-    <div className="my-5 flex items-center gap-3">
+    <div className="my-6 flex items-center gap-3">
       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
       <Sparkles className="w-3 h-3 text-muted-foreground/30" />
       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
@@ -150,37 +196,19 @@ const MarkdownComponents = {
 
 function WhiteboardSections({ sections }: { sections: WhiteboardSection[] }) {
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-6">
       {sections.map((section, idx) => {
         const style = SECTION_STYLES[section.emoji] || SECTION_STYLES["📐"];
         return (
           <div
             key={idx}
             className={cn(
-              "rounded-2xl border p-0 overflow-hidden transition-all shadow-sm",
+              "rounded-2xl border-2 p-0 overflow-hidden transition-all shadow-sm",
               style.bg,
               style.border,
               style.glow
             )}
           >
-            <div className={cn("flex items-center gap-3 px-5 py-3 border-b", style.border)}>
-              <div className={cn("w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center", style.icon)}>
-                <span className="text-base">{section.emoji}</span>
-              </div>
-              <h3 className={cn("font-bold text-sm tracking-tight", style.accent)}>{section.title}</h3>
-            </div>
-            <div className="px-5 py-4">
-              <div className="max-w-none text-sm">
-                <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function AITutor() {
   const [query, setQuery] = useState("");
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
