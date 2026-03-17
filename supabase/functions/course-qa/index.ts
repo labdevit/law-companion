@@ -10,10 +10,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { question, courseContent, courseTitle, history } = await req.json();
+    const { question, courseContent, courseTitle, history, file } = await req.json();
 
-    if (!question || !courseContent) {
-      return new Response(JSON.stringify({ error: "Les champs 'question' et 'courseContent' sont requis" }), {
+    if (!question && !file) {
+      return new Response(JSON.stringify({ error: "Un message ou un fichier est requis" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -23,9 +23,9 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     // Truncate course content
-    const truncatedContent = courseContent.length > 12000
+    const truncatedContent = courseContent && courseContent.length > 12000
       ? courseContent.substring(0, 12000) + "\n[... contenu tronqué]"
-      : courseContent;
+      : courseContent || "";
 
     const systemPrompt = `Tu es un prof particulier direct et efficace. Ton étudiant te pose des questions sur son cours.
 
@@ -43,9 +43,10 @@ RÈGLES STRICTES:
 7. Si c'est un résumé → liste à puces des points essentiels, rien d'autre.
 8. Ne répète JAMAIS la question de l'étudiant dans ta réponse.
 9. Parle comme un vrai prof : naturel, direct, parfois un "en gros" ou "concrètement" mais jamais de bavardage inutile.
-10. Base-toi UNIQUEMENT sur le contenu du cours fourni.`;
+10. Base-toi sur le contenu du cours fourni ET sur les documents joints par l'étudiant.
+11. Si un document est joint, analyse-le et intègre son contenu dans tes réponses.`;
 
-    const messages: Array<{ role: string; content: string }> = [
+    const messages: Array<{ role: string; content: any }> = [
       { role: "system", content: systemPrompt },
     ];
 
@@ -57,7 +58,28 @@ RÈGLES STRICTES:
       }
     }
 
-    messages.push({ role: "user", content: question });
+    // Build user message - multimodal if file attached
+    if (file && file.base64) {
+      const mimeType = file.type || "application/pdf";
+      const userContent: any[] = [];
+
+      if (question) {
+        userContent.push({ type: "text", text: question });
+      } else {
+        userContent.push({ type: "text", text: `Analyse ce document : ${file.name || "document"}` });
+      }
+
+      userContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${file.base64}`,
+        },
+      });
+
+      messages.push({ role: "user", content: userContent });
+    } else {
+      messages.push({ role: "user", content: question });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -66,7 +88,7 @@ RÈGLES STRICTES:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages,
         stream: true,
       }),
