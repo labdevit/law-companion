@@ -62,8 +62,10 @@ export function CourseQA({ course }: CourseQAProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<AttachedFile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const courseContent = getAllSections(course)
     .map((s) => `## ${s.title}\n${s.content.replace(/<[^>]+>/g, "")}`)
