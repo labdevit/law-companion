@@ -115,8 +115,9 @@ const Index = () => {
     const currentProgress = getSectionProgress(sectionId);
     const wasCompleted = currentProgress?.completed || false;
     toggleSectionComplete(sectionId);
+    if (!wasCompleted) recordStudy();
     setToastType(wasCompleted ? "uncomplete" : "complete");
-  }, [getSectionProgress, toggleSectionComplete]);
+  }, [getSectionProgress, toggleSectionComplete, recordStudy]);
 
   // ═══════════════════════════════════════════
   // HOME VIEW
