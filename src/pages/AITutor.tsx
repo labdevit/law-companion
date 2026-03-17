@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight } from "lucide-react";
+import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
@@ -14,12 +14,12 @@ interface WhiteboardSection {
   body: string;
 }
 
-const SECTION_STYLES: Record<string, { bg: string; border: string; accent: string }> = {
-  "📐": { bg: "bg-primary/5", border: "border-primary/20", accent: "text-primary" },
-  "🔢": { bg: "bg-orange-500/5", border: "border-orange-500/20", accent: "text-orange-600 dark:text-orange-400" },
-  "💡": { bg: "bg-secondary/5", border: "border-secondary/20", accent: "text-secondary" },
-  "✍️": { bg: "bg-accent/5", border: "border-accent/20", accent: "text-accent" },
-  "✅": { bg: "bg-emerald-500/5", border: "border-emerald-500/20", accent: "text-emerald-600 dark:text-emerald-400" },
+const SECTION_STYLES: Record<string, { bg: string; border: string; accent: string; glow: string; icon: string }> = {
+  "📐": { bg: "bg-primary/[0.04]", border: "border-primary/15", accent: "text-primary", glow: "shadow-primary/5", icon: "from-primary/20 to-primary/5" },
+  "🔢": { bg: "bg-[hsl(var(--warning)/.04)]", border: "border-[hsl(var(--warning)/.15)]", accent: "text-[hsl(var(--warning))]", glow: "shadow-[hsl(var(--warning)/.05)]", icon: "from-[hsl(var(--warning)/.2)] to-[hsl(var(--warning)/.05)]" },
+  "💡": { bg: "bg-secondary/[0.04]", border: "border-secondary/15", accent: "text-secondary", glow: "shadow-secondary/5", icon: "from-secondary/20 to-secondary/5" },
+  "✍️": { bg: "bg-accent/[0.04]", border: "border-accent/15", accent: "text-accent", glow: "shadow-accent/5", icon: "from-accent/20 to-accent/5" },
+  "✅": { bg: "bg-secondary/[0.04]", border: "border-secondary/15", accent: "text-secondary", glow: "shadow-secondary/5", icon: "from-secondary/20 to-secondary/5" },
 };
 
 function parseSections(content: string): WhiteboardSection[] {
@@ -53,6 +53,73 @@ const SUGGESTIONS = [
   { icon: "📈", text: "Explique le seuil de rentabilité avec un cas pratique" },
   { icon: "🔐", text: "Les sûretés réelles en droit OHADA : résumé et exemples" },
 ];
+
+/* Custom markdown components for better visual rendering */
+const MarkdownComponents = {
+  table: ({ children, ...props }: any) => (
+    <div className="my-4 overflow-x-auto rounded-xl border border-border/40 bg-card/50">
+      <table className="w-full text-sm border-collapse" {...props}>{children}</table>
+    </div>
+  ),
+  thead: ({ children, ...props }: any) => (
+    <thead className="bg-muted/40 border-b border-border/40" {...props}>{children}</thead>
+  ),
+  th: ({ children, ...props }: any) => (
+    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground" {...props}>{children}</th>
+  ),
+  td: ({ children, ...props }: any) => (
+    <td className="px-4 py-2.5 border-t border-border/20 text-foreground/90" {...props}>{children}</td>
+  ),
+  tr: ({ children, ...props }: any) => (
+    <tr className="transition-colors hover:bg-muted/20" {...props}>{children}</tr>
+  ),
+  strong: ({ children, ...props }: any) => (
+    <strong className="font-bold text-foreground" {...props}>{children}</strong>
+  ),
+  ul: ({ children, ...props }: any) => (
+    <ul className="my-3 space-y-2 list-none pl-0" {...props}>{children}</ul>
+  ),
+  ol: ({ children, ...props }: any) => (
+    <ol className="my-3 space-y-2 list-none pl-0 counter-reset-item" {...props}>{children}</ol>
+  ),
+  li: ({ children, ordered, ...props }: any) => (
+    <li className="flex items-start gap-2.5 text-foreground/85 leading-relaxed" {...props}>
+      <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/50 flex-shrink-0" />
+      <span className="flex-1">{children}</span>
+    </li>
+  ),
+  p: ({ children, ...props }: any) => (
+    <p className="my-2.5 leading-[1.8] text-foreground/85" {...props}>{children}</p>
+  ),
+  h3: ({ children, ...props }: any) => (
+    <h3 className="text-sm font-bold text-foreground mt-4 mb-2 flex items-center gap-2" {...props}>
+      <span className="w-1 h-4 rounded-full bg-primary inline-block" />
+      {children}
+    </h3>
+  ),
+  h4: ({ children, ...props }: any) => (
+    <h4 className="text-sm font-semibold text-foreground/90 mt-3 mb-1.5" {...props}>{children}</h4>
+  ),
+  blockquote: ({ children, ...props }: any) => (
+    <blockquote className="my-3 pl-4 border-l-2 border-primary/30 bg-primary/[0.03] rounded-r-xl py-2 pr-3 text-foreground/80 italic" {...props}>{children}</blockquote>
+  ),
+  code: ({ children, className, ...props }: any) => {
+    const isInline = !className;
+    if (isInline) {
+      return <code className="text-xs bg-muted/60 text-foreground px-1.5 py-0.5 rounded-md font-mono" {...props}>{children}</code>;
+    }
+    return (
+      <code className="block my-3 p-4 rounded-xl bg-muted/40 border border-border/30 text-xs font-mono overflow-x-auto" {...props}>{children}</code>
+    );
+  },
+  hr: () => (
+    <div className="my-5 flex items-center gap-3">
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+      <Sparkles className="w-3 h-3 text-muted-foreground/30" />
+      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+    </div>
+  ),
+};
 
 export default function AITutor() {
   const [query, setQuery] = useState("");
@@ -313,25 +380,32 @@ export default function AITutor() {
               )}
 
               {/* Sections */}
-              <div className="grid gap-4">
+              <div className="grid gap-5">
                 {sections.map((section, idx) => {
                   const style = SECTION_STYLES[section.emoji] || SECTION_STYLES["📐"];
                   return (
                     <div
                       key={idx}
                       className={cn(
-                        "rounded-2xl border p-5 transition-all animate-fade-in",
+                        "rounded-2xl border p-0 overflow-hidden transition-all animate-fade-in shadow-sm",
                         style.bg,
-                        style.border
+                        style.border,
+                        style.glow
                       )}
-                      style={{ animationDelay: `${idx * 100}ms` }}
+                      style={{ animationDelay: `${idx * 120}ms` }}
                     >
-                      <div className="flex items-center gap-2.5 mb-3">
-                        <span className="text-xl">{section.emoji}</span>
-                        <h3 className={cn("font-bold text-base", style.accent)}>{section.title}</h3>
+                      {/* Section header bar */}
+                      <div className={cn("flex items-center gap-3 px-5 py-3 border-b", style.border)}>
+                        <div className={cn("w-8 h-8 rounded-xl bg-gradient-to-br flex items-center justify-center", style.icon)}>
+                          <span className="text-base">{section.emoji}</span>
+                        </div>
+                        <h3 className={cn("font-bold text-sm tracking-tight", style.accent)}>{section.title}</h3>
                       </div>
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_table]:text-xs [&_th]:bg-muted/30 [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 [&_table]:rounded-xl [&_table]:overflow-hidden [&_table]:border [&_table]:border-border/30 [&_strong]:text-foreground [&_code]:text-xs [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_li]:leading-relaxed [&_p]:leading-relaxed">
-                        <ReactMarkdown>{section.body}</ReactMarkdown>
+                      {/* Section body */}
+                      <div className="px-5 py-4">
+                        <div className="max-w-none text-sm">
+                          <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                   );
