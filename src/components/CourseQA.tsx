@@ -367,7 +367,15 @@ export function CourseQA({ course }: CourseQAProps) {
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
-                    <p>{msg.content}</p>
+                    <>
+                      {msg.fileName && (
+                        <div className="flex items-center gap-1.5 mb-1.5 text-xs opacity-80">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span className="truncate max-w-[180px]">{msg.fileName}</span>
+                        </div>
+                      )}
+                      <p>{msg.content}</p>
+                    </>
                   )}
                 </div>
               </div>
