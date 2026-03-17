@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Brain, ArrowLeft, GraduationCap, Undo2 } from "lucide-react";
+import { Sparkles, Menu, X, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Brain, ArrowLeft, GraduationCap, Undo2, Flame, Target, Trophy, Zap } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
+import { useStreak } from "@/hooks/useStreak";
 import { useTheme } from "@/hooks/useTheme";
 import { CourseCard } from "@/components/CourseCard";
 import { ChapterNav } from "@/components/ChapterNav";
@@ -12,6 +13,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProgressToast } from "@/components/ProgressToast";
 import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
 import { CourseQA } from "@/components/CourseQA";
+import { AppNav } from "@/components/AppNav";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
