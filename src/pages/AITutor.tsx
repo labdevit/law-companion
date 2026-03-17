@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles, RotateCcw, MessageCircle } from "lucide-react";
-import { COURSES, getAllSections, Course } from "@/data/courses";
+import { COURSES, getAllSections } from "@/data/courses";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
 import { AppNav } from "@/components/AppNav";
@@ -31,25 +31,18 @@ const SECTION_STYLES: Record<string, { bg: string; border: string; accent: strin
 /** Strip any leftover LaTeX artifacts like $...$ or \frac etc */
 function cleanLatex(text: string): string {
   return text
-    // Remove $...$ wrappers but keep inner content
     .replace(/\$([^$]+)\$/g, '$1')
-    // Clean \frac{a}{b} -> a/b
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 ÷ $2')
-    // Clean \sum, \text, etc
     .replace(/\\(sum|text|left|right|times|cdot)/g, '')
-    // Clean ^{n} -> puissance n
     .replace(/\^{([^}]+)}/g, ' puissance $1')
-    // Clean _{n} -> subscript
     .replace(/_{([^}]+)}/g, '$1')
-    // Clean remaining backslash commands
     .replace(/\\[a-zA-Z]+/g, '')
-    // Clean double spaces
     .replace(/\s{2,}/g, ' ');
 }
 
 function parseSections(content: string): WhiteboardSection[] {
   const cleaned = cleanLatex(content);
-  
+
   if (!cleaned.includes("## ")) {
     return cleaned.trim() ? [{ emoji: "📐", title: "Réponse", body: cleaned }] : [];
   }
@@ -81,82 +74,73 @@ const SUGGESTIONS = [
   { icon: "🔐", text: "Les sûretés réelles en droit OHADA : résumé et exemples" },
 ];
 
-/* Custom markdown components for better visual rendering */
+/* Custom markdown components for digestible, visual rendering */
 const MarkdownComponents = {
   table: ({ children, ...props }: any) => (
-    <div className="my-5 overflow-x-auto rounded-2xl border-2 border-primary/15 shadow-md bg-card/80">
+    <div className="my-6 overflow-x-auto rounded-2xl border-2 border-primary/20 shadow-md">
       <table className="w-full text-sm" {...props}>{children}</table>
     </div>
   ),
   thead: ({ children, ...props }: any) => (
-    <thead className="bg-gradient-to-r from-primary/10 to-primary/[0.04]" {...props}>{children}</thead>
+    <thead className="bg-gradient-to-r from-primary/12 to-primary/[0.04] dark:from-primary/20 dark:to-primary/[0.06]" {...props}>{children}</thead>
   ),
   th: ({ children, ...props }: any) => (
-    <th className="px-5 py-3.5 text-left text-xs font-extrabold uppercase tracking-widest text-primary border-b-2 border-primary/20 whitespace-nowrap" {...props}>{children}</th>
+    <th className="px-5 py-3.5 text-left text-[11px] font-extrabold uppercase tracking-[0.15em] text-primary border-b-2 border-primary/25 whitespace-nowrap" {...props}>
+      {children}
+    </th>
   ),
-  td: ({ children, ...props }: any) => {
-    // Detect if content contains bold markers for result rows
-    const text = typeof children === 'string' ? children : '';
-    const isTotal = text.toLowerCase().includes('total') || text.toLowerCase().includes('van') || text.toLowerCase().includes('résultat');
-    return (
-      <td className={cn(
-        "px-5 py-3 border-b border-border/10 tabular-nums",
-        isTotal ? "font-bold text-foreground bg-primary/[0.04]" : "text-foreground/85"
-      )} {...props}>{children}</td>
-    );
-  },
+  td: ({ children, ...props }: any) => (
+    <td className="px-5 py-3.5 border-b border-border/10 text-foreground/90 tabular-nums text-[13px]" {...props}>
+      {children}
+    </td>
+  ),
   tr: ({ children, ...props }: any) => (
-    <tr className="transition-colors even:bg-muted/[0.03] hover:bg-primary/[0.04]" {...props}>{children}</tr>
+    <tr className="transition-colors even:bg-muted/[0.04] hover:bg-primary/[0.05]" {...props}>{children}</tr>
   ),
   strong: ({ children, ...props }: any) => {
     const text = typeof children === 'string' ? children : '';
-    // Highlight key results with a badge-like style
-    const isResult = text.includes('FCFA') || text.includes('Résultat') || text.includes('VAN') || text.match(/^[\d\s,.]+$/);
+    // Key results get a highlighted badge
+    const isResult = text.includes('FCFA') || text.includes('Résultat') || text.match(/^-?[\d\s,.]+\s*(FCFA)?$/);
     if (isResult) {
       return (
-        <strong className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-secondary/10 text-secondary font-extrabold border border-secondary/20" {...props}>
-          {children}
+        <strong className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/12 text-secondary font-extrabold border border-secondary/20 text-[13px]" {...props}>
+          ✦ {children}
         </strong>
       );
     }
+    // Key terms get subtle highlight
     return (
-      <strong className="font-bold text-foreground" {...props}>{children}</strong>
+      <strong className="font-extrabold text-foreground bg-primary/[0.06] px-1 py-0.5 rounded" {...props}>{children}</strong>
     );
   },
   ul: ({ children, ...props }: any) => (
     <ul className="my-4 space-y-3 list-none pl-0" {...props}>{children}</ul>
   ),
   ol: ({ children, ...props }: any) => (
-    <ol className="my-4 space-y-3 list-none pl-0" {...props}>
-      {/* Add numbered styling */}
-      {Array.isArray(children) ? children.map((child: any, i: number) => {
-        if (!child) return null;
-        return (
-          <li key={i} className="flex items-start gap-3 text-foreground/85 leading-relaxed">
-            <span className="mt-0.5 w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0">
-              {i + 1}
-            </span>
-            <span className="flex-1 pt-0.5">{typeof child === 'object' && child?.props?.children ? child.props.children : child}</span>
-          </li>
-        );
-      }) : children}
-    </ol>
+    <ol className="my-4 space-y-3 list-none pl-0 [counter-reset:item]" {...props}>{children}</ol>
   ),
-  li: ({ children, ordered, ...props }: any) => (
-    <li className="flex items-start gap-3 text-foreground/85 leading-relaxed" {...props}>
-      <span className="mt-2 w-2 h-2 rounded-full bg-gradient-to-br from-primary to-secondary flex-shrink-0" />
-      <span className="flex-1">{children}</span>
+  li: ({ children, ...props }: any) => (
+    <li className="flex items-start gap-3 leading-relaxed text-[13.5px]" {...props}>
+      <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-primary/60 to-secondary/40 flex-shrink-0 shadow-sm" />
+      <span className="flex-1 text-foreground/85">{children}</span>
     </li>
   ),
   p: ({ children, ...props }: any) => {
     const text = typeof children === 'string' ? children : '';
-    // Detect conclusion/result paragraphs
-    const isConclusion = text.includes('Conclusion') || text.includes('Résultat') || text.includes('Interprétation');
-    if (isConclusion) {
+    // Conclusion/interpretation paragraphs get a callout box
+    if (text.startsWith('Conclusion') || text.startsWith('Interprétation') || text.startsWith('Résultat :') || text.startsWith('Résultat:')) {
       return (
-        <div className="my-4 p-4 rounded-xl bg-secondary/[0.06] border border-secondary/15 flex items-start gap-3" {...props}>
-          <span className="text-lg mt-0.5">✨</span>
-          <p className="text-sm leading-relaxed text-foreground/90 font-medium flex-1">{children}</p>
+        <div className="my-5 p-4 rounded-xl bg-gradient-to-r from-secondary/[0.08] to-secondary/[0.02] border-2 border-secondary/20 flex items-start gap-3">
+          <span className="text-xl mt-0.5 flex-shrink-0">🎯</span>
+          <p className="text-sm leading-relaxed text-foreground font-medium flex-1">{children}</p>
+        </div>
+      );
+    }
+    // Formula-like paragraphs (containing = signs and key terms)
+    if (text.includes(' = ') && (text.includes('VAN') || text.includes('Flux') || text.includes('Taux') || text.includes('Somme'))) {
+      return (
+        <div className="my-4 px-5 py-3.5 rounded-xl bg-[hsl(var(--warning)/.06)] border border-[hsl(var(--warning)/.15)] font-mono text-[13px] text-foreground/90">
+          {children}
         </div>
       );
     }
@@ -165,7 +149,7 @@ const MarkdownComponents = {
     );
   },
   h3: ({ children, ...props }: any) => (
-    <h3 className="text-sm font-bold text-foreground mt-5 mb-2.5 flex items-center gap-2.5 pb-1.5 border-b border-border/20" {...props}>
+    <h3 className="text-sm font-bold text-foreground mt-5 mb-2.5 flex items-center gap-2.5 pb-2 border-b border-border/15" {...props}>
       <span className="w-1.5 h-5 rounded-full bg-gradient-to-b from-primary to-secondary inline-block" />
       {children}
     </h3>
@@ -174,7 +158,9 @@ const MarkdownComponents = {
     <h4 className="text-sm font-semibold text-foreground/90 mt-4 mb-2" {...props}>{children}</h4>
   ),
   blockquote: ({ children, ...props }: any) => (
-    <blockquote className="my-4 pl-4 border-l-3 border-primary/30 bg-primary/[0.04] rounded-r-xl py-3 pr-4 text-foreground/80" {...props}>{children}</blockquote>
+    <blockquote className="my-4 pl-4 border-l-[3px] border-primary/30 bg-primary/[0.04] rounded-r-xl py-3 pr-4 text-foreground/80" {...props}>
+      {children}
+    </blockquote>
   ),
   code: ({ children, className, ...props }: any) => {
     const isInline = !className;
@@ -209,6 +195,26 @@ function WhiteboardSections({ sections }: { sections: WhiteboardSection[] }) {
               style.glow
             )}
           >
+            {/* Section header bar */}
+            <div className={cn("flex items-center gap-3 px-5 py-3.5 border-b-2", style.border)}>
+              <div className={cn("w-9 h-9 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm", style.icon)}>
+                <span className="text-lg">{section.emoji}</span>
+              </div>
+              <h3 className={cn("font-extrabold text-sm tracking-tight", style.accent)}>{section.title}</h3>
+            </div>
+            {/* Section body */}
+            <div className="px-6 py-5">
+              <div className="max-w-none">
+                <ReactMarkdown components={MarkdownComponents}>{section.body}</ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AITutor() {
   const [query, setQuery] = useState("");
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
@@ -255,7 +261,6 @@ export default function AITutor() {
         .join("\n\n");
     }
 
-    // Build history from previous conversation entries
     const history = conversation.map((entry) => ({
       question: entry.question,
       response: entry.response,
@@ -316,7 +321,6 @@ export default function AITutor() {
         }
       }
 
-      // Once done, commit to conversation history
       const finalSections = parseSections(fullContent);
       setConversation((prev) => [
         ...prev,
@@ -364,7 +368,6 @@ export default function AITutor() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* New conversation button */}
             {hasContent && (
               <button
                 onClick={handleNewConversation}
@@ -375,7 +378,6 @@ export default function AITutor() {
                 <span className="hidden sm:inline">Nouveau</span>
               </button>
             )}
-            {/* Course selector */}
             <div className="relative">
               <button
                 onClick={() => setShowCourseSelect(!showCourseSelect)}
@@ -440,7 +442,6 @@ export default function AITutor() {
       <div ref={whiteboardRef} className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto px-4 py-6">
           {!hasContent ? (
-            /* Empty state with suggestions */
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-fade-in">
               <div className="relative mb-6">
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/15 to-secondary/10 flex items-center justify-center shadow-lg">
@@ -453,7 +454,7 @@ export default function AITutor() {
 
               <h2 className="text-xl font-bold mb-2">Ton tableau blanc intelligent</h2>
               <p className="text-sm text-muted-foreground text-center max-w-md mb-8 leading-relaxed">
-                Pose une question complexe — finance, comptabilité, droit — et je te l'explique 
+                Pose une question complexe — finance, comptabilité, droit — et je te l'explique
                 visuellement, étape par étape. Tu peux poser des questions de suivi pour approfondir.
               </p>
 
@@ -480,7 +481,6 @@ export default function AITutor() {
               {/* Previous conversation entries */}
               {conversation.map((entry, entryIdx) => (
                 <div key={entryIdx} className="animate-fade-in">
-                  {/* Question bubble */}
                   <div className="flex items-start gap-3 mb-4">
                     <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <GraduationCap className="w-4 h-4 text-primary" />
@@ -495,12 +495,10 @@ export default function AITutor() {
                     </div>
                   </div>
 
-                  {/* Response sections */}
                   <div className="ml-11">
                     <WhiteboardSections sections={entry.sections} />
                   </div>
 
-                  {/* Separator between exchanges */}
                   {entryIdx < conversation.length - 1 && (
                     <div className="my-8 flex items-center gap-3">
                       <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
@@ -514,7 +512,6 @@ export default function AITutor() {
               {/* Currently streaming response */}
               {(isLoading || streamingResponse) && (
                 <div className="animate-fade-in">
-                  {/* Current question bubble */}
                   <div className="flex items-start gap-3 mb-4">
                     <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <GraduationCap className="w-4 h-4 text-primary" />
@@ -530,7 +527,6 @@ export default function AITutor() {
                   </div>
 
                   <div className="ml-11">
-                    {/* Loading state */}
                     {isLoading && streamingSections.length === 0 && (
                       <div className="flex flex-col items-center py-10 gap-3 animate-fade-in">
                         <div className="relative">
@@ -546,12 +542,10 @@ export default function AITutor() {
                       </div>
                     )}
 
-                    {/* Streaming sections */}
                     {streamingSections.length > 0 && (
                       <WhiteboardSections sections={streamingSections} />
                     )}
 
-                    {/* Streaming indicator */}
                     {isLoading && streamingSections.length > 0 && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in py-2 mt-2">
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -562,7 +556,6 @@ export default function AITutor() {
                 </div>
               )}
 
-              {/* Follow-up prompt */}
               {!isLoading && conversation.length > 0 && !streamingResponse && (
                 <div className="pt-3 mt-4 animate-fade-in">
                   <div className="flex items-center gap-2 justify-center text-xs text-muted-foreground">
