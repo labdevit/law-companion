@@ -84,21 +84,21 @@ const SUGGESTIONS = [
 /* Custom markdown components for better visual rendering */
 const MarkdownComponents = {
   table: ({ children, ...props }: any) => (
-    <div className="my-4 overflow-x-auto rounded-xl border border-border/40 bg-card/50">
+    <div className="my-5 overflow-x-auto rounded-xl border border-border/30 shadow-sm">
       <table className="w-full text-sm border-collapse" {...props}>{children}</table>
     </div>
   ),
   thead: ({ children, ...props }: any) => (
-    <thead className="bg-muted/40 border-b border-border/40" {...props}>{children}</thead>
+    <thead className="bg-primary/[0.06] dark:bg-primary/[0.1]" {...props}>{children}</thead>
   ),
   th: ({ children, ...props }: any) => (
-    <th className="px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground" {...props}>{children}</th>
+    <th className="px-4 py-3 text-left text-xs font-bold text-primary border-b-2 border-primary/20 whitespace-nowrap" {...props}>{children}</th>
   ),
   td: ({ children, ...props }: any) => (
-    <td className="px-4 py-2.5 border-t border-border/20 text-foreground/90" {...props}>{children}</td>
+    <td className="px-4 py-3 border-b border-border/15 text-foreground/90 tabular-nums" {...props}>{children}</td>
   ),
   tr: ({ children, ...props }: any) => (
-    <tr className="transition-colors hover:bg-muted/20" {...props}>{children}</tr>
+    <tr className="transition-colors even:bg-muted/[0.04] hover:bg-primary/[0.03]" {...props}>{children}</tr>
   ),
   strong: ({ children, ...props }: any) => (
     <strong className="font-bold text-foreground" {...props}>{children}</strong>
