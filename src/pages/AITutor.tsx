@@ -44,12 +44,46 @@ function cleanLatex(text: string): string {
     .replace(/\n{3,}/g, "\n\n");
 }
 
+const isTableLine = (line: string) => /^\s*\|.+\|?\s*$/.test(line);
+const isSeparatorFragment = (line: string) => /^\s*\|[\s:|\-]+\|?\s*$/.test(line);
+
 function normalizeMarkdownTables(text: string): string {
-  return text
-    .replace(/([:?!])\s+(\|[^\n]+\|)/g, "$1\n\n$2")
-    .replace(/([^\n])\n(\|[-:\s]+\|)/g, "$1\n$2")
-    .replace(/(\|[^\n]+\|)\n(?!\n|\|)/g, "$1\n\n");
+  const introFixed = text.replace(/([:?!])\s+(\|[^\n]+\|?)/g, "$1\n\n$2");
+  const lines = introFixed.split("\n");
+  const normalized: string[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    let line = lines[i].trimEnd();
+    const nextLine = lines[i + 1]?.trim() ?? "";
+
+    if (!line.trim()) {
+      const previousLine = normalized[normalized.length - 1]?.trim() ?? "";
+      if ((isTableLine(previousLine) || isSeparatorFragment(previousLine)) && (isTableLine(nextLine) || isSeparatorFragment(nextLine))) {
+        continue;
+      }
+      normalized.push("");
+      continue;
+    }
+
+    if (isSeparatorFragment(line)) {
+      while (i + 1 < lines.length && isSeparatorFragment(lines[i + 1])) {
+        line = `${line.trim()} ${lines[i + 1].trim()}`;
+        i += 1;
+      }
+      line = line.replace(/\s+\|/g, " |").replace(/\|\s+/g, "| ").trim();
+      if (!line.endsWith("|")) line = `${line} |`;
+    }
+
+    if (isTableLine(line) && !line.endsWith("|")) {
+      line = `${line} |`;
+    }
+
+    normalized.push(line);
+  }
+
+  return normalized.join("\n").replace(/\n{3,}/g, "\n\n");
 }
+
 
 function parseSections(content: string): WhiteboardSection[] {
   const cleaned = cleanLatex(content);
