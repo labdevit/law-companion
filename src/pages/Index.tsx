@@ -362,6 +362,11 @@ const Index = () => {
         )}
       </main>
 
+      {/* Course Q&A Chat */}
+      <CourseQA course={activeCourse} />
+        )}
+      </main>
+
       {/* Progress Toast */}
       {toastType && (
         <ProgressToast
