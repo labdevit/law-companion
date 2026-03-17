@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Upload } from "lucide-react";
+import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Upload, Brain } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
@@ -11,6 +11,7 @@ import { StatsDisplay } from "@/components/StatsDisplay";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProgressToast } from "@/components/ProgressToast";
 import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
+import { CourseQA } from "@/components/CourseQA";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
