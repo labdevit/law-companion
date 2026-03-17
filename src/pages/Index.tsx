@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Upload } from "lucide-react";
+import { Sparkles, Menu, X, Home, Sun, Moon, RotateCcw, Plus, Trash2, Copy, Upload, Brain } from "lucide-react";
 import { COURSES, getAllSections, Course } from "@/data/courses";
 import { useStudyProgress } from "@/hooks/useStudyProgress";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
@@ -11,6 +11,7 @@ import { StatsDisplay } from "@/components/StatsDisplay";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { ProgressToast } from "@/components/ProgressToast";
 import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
+import { CourseQA } from "@/components/CourseQA";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
@@ -155,10 +156,10 @@ const Index = () => {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowCourseImporter(true)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl border border-border/50 hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-xl bg-gradient-to-r from-primary/10 to-secondary/10 text-primary hover:from-primary/20 hover:to-secondary/20 transition-colors border border-primary/20"
                 >
-                  <Upload className="w-4 h-4" />
-                  Importer
+                  <Brain className="w-4 h-4" />
+                  Importer avec l'IA
                 </button>
                 <button
                   onClick={() => setShowCourseCreator(true)}
@@ -360,6 +361,9 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      {/* Course Q&A Chat */}
+      <CourseQA course={activeCourse} />
 
       {/* Progress Toast */}
       {toastType && (
