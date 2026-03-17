@@ -127,7 +127,7 @@ const Index = () => {
     const greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
 
     return (
-      <div className="min-h-screen p-4 lg:p-8">
+      <div className="min-h-screen p-4 lg:p-8 pb-24">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
           <header className="mb-8 animate-fade-in">
