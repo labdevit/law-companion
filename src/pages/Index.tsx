@@ -62,6 +62,7 @@ const Index = () => {
   }, [allCourses]);
 
   const stats = getStats(allCourseSections.length);
+  const { currentStreak, dailyGoal, todayCompleted, allAchievements, recordStudy } = useStreak(stats.sectionsCompleted);
   const [toastType, setToastType] = useState<ToastType>(null);
 
   const handleSelectCourse = (courseId: string) => {
