@@ -316,6 +316,7 @@ const Index = () => {
             onImport={(data) => { addCourse(data); setShowCourseImporter(false); }}
           />
         </div>
+        <AppNav />
       </div>
     );
   }
