@@ -116,7 +116,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
         }
 
         body.fileName = attachedFile.name;
-        body.content = `Document source : ${attachedFile.name}\n\n${optimizeExtractedTextForAI(extractedText)}`;
+        body.content = `Document source : ${attachedFile.name}\n\n${optimizeExtractedTextForAI(extractedText, 55000)}`;
       } else {
         body.content = rawContent.trim();
       }
