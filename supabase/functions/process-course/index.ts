@@ -6,6 +6,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function extractJsonFromText(text: string): any {
+  try {
+    let cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const jsonStart = cleaned.search(/[\{\[]/);
+    if (jsonStart === -1) return null;
+    const endChar = cleaned[jsonStart] === '[' ? ']' : '}';
+    const jsonEnd = cleaned.lastIndexOf(endChar);
+    if (jsonEnd === -1) return null;
+    cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+    try { return JSON.parse(cleaned); } catch {
+      cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+      return JSON.parse(cleaned);
+    }
+  } catch { return null; }
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -157,15 +174,31 @@ Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    let course: any = null;
 
-    if (!toolCall?.function?.arguments) {
-      throw new Error("No structured output from AI");
+    // Try tool_calls first
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      course = typeof toolCall.function.arguments === "string"
+        ? JSON.parse(toolCall.function.arguments)
+        : toolCall.function.arguments;
     }
 
-    const course = typeof toolCall.function.arguments === "string"
-      ? JSON.parse(toolCall.function.arguments)
-      : toolCall.function.arguments;
+    // Fallback: extract JSON from message content
+    if (!course) {
+      const content = data.choices?.[0]?.message?.content || "";
+      console.log("No tool_call, trying content fallback. Content length:", content.length);
+      
+      const extracted = extractJsonFromText(content);
+      if (extracted && extracted.title && extracted.chapters) {
+        course = extracted;
+      }
+    }
+
+    if (!course) {
+      console.error("AI response structure:", JSON.stringify(data.choices?.[0]?.message, null, 2).substring(0, 500));
+      throw new Error("No structured output from AI");
+    }
 
     return new Response(JSON.stringify({ course }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
