@@ -36,7 +36,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProps) {
   const [step, setStep] = useState<Step>("upload");
   const [rawContent, setRawContent] = useState("");
-  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; base64: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; base64?: string; rawFile?: File } | null>(null);
   const [parsedCourse, setParsedCourse] = useState<ParsedCourse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [icon, setIcon] = useState(COURSE_ICONS[0]);
