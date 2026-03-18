@@ -7,6 +7,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const DIRECT_REQUEST_MAX_CHARS = 35000;
+const DIRECT_MODEL_MAX_CHARS = 45000;
+const CHUNK_TARGET_CHARS = 18000;
+const CHUNK_HARD_MAX_CHARS = 24000;
+const FINAL_CONTEXT_MAX_CHARS = 90000;
+
 function getSupabase() {
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -14,20 +20,137 @@ function getSupabase() {
   );
 }
 
+function normalizeTextContent(text: string) {
+  return text
+    .replace(/\u0000/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+function truncateMiddle(text: string, maxChars: number) {
+  if (text.length <= maxChars) return text;
+  const head = text.slice(0, Math.floor(maxChars * 0.55));
+  const tail = text.slice(-Math.floor(maxChars * 0.35));
+  return `${head}\n\n[... contenu intermédiaire condensé ...]\n\n${tail}`;
+}
+
+function splitOversizedBlock(block: string, maxChars: number) {
+  if (block.length <= maxChars) return [block];
+
+  const sentences = block
+    .split(/(?<=[.!?])\s+(?=[A-ZÀ-ÿ0-9])/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  if (sentences.length <= 1) {
+    const slices: string[] = [];
+    for (let index = 0; index < block.length; index += maxChars) {
+      slices.push(block.slice(index, index + maxChars));
+    }
+    return slices;
+  }
+
+  const parts: string[] = [];
+  let current = "";
+
+  for (const sentence of sentences) {
+    const candidate = current ? `${current} ${sentence}` : sentence;
+    if (candidate.length > maxChars && current) {
+      parts.push(current.trim());
+      current = sentence;
+      continue;
+    }
+
+    if (candidate.length > maxChars) {
+      for (let index = 0; index < sentence.length; index += maxChars) {
+        parts.push(sentence.slice(index, index + maxChars));
+      }
+      current = "";
+      continue;
+    }
+
+    current = candidate;
+  }
+
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+function splitTextIntoChunks(text: string) {
+  const normalized = normalizeTextContent(text);
+  const blocks = normalized
+    .split(/\n{2,}|(?=Page\s+\d+\b)|(?=Chapitre\s+\d+\b)|(?=Section\s+\d+\b)/i)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .flatMap((block) => splitOversizedBlock(block, CHUNK_HARD_MAX_CHARS));
+
+  if (!blocks.length) return [truncateMiddle(normalized, DIRECT_MODEL_MAX_CHARS)];
+
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const block of blocks) {
+    const candidate = current ? `${current}\n\n${block}` : block;
+    if (candidate.length > CHUNK_TARGET_CHARS && current) {
+      chunks.push(current.trim());
+      current = block;
+      continue;
+    }
+    current = candidate;
+  }
+
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.filter(Boolean);
+}
+
+function groupItems<T>(items: T[], size: number) {
+  const groups: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    groups.push(items.slice(index, index + size));
+  }
+  return groups;
+}
+
 function extractJsonFromText(text: string): any {
   try {
     let cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
     const jsonStart = cleaned.search(/[\{\[]/);
     if (jsonStart === -1) return null;
-    const endChar = cleaned[jsonStart] === '[' ? ']' : '}';
+    const endChar = cleaned[jsonStart] === "[" ? "]" : "}";
     const jsonEnd = cleaned.lastIndexOf(endChar);
     if (jsonEnd === -1) return null;
     cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-    try { return JSON.parse(cleaned); } catch {
-      cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      cleaned = cleaned
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*]/g, "]")
+        .replace(/[\x00-\x1F\x7F]/g, "");
       return JSON.parse(cleaned);
     }
-  } catch { return null; }
+  } catch {
+    return null;
+  }
+}
+
+function extractMessageText(content: unknown) {
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part && typeof part.text === "string") {
+          return part.text;
+        }
+        return "";
+      })
+      .join("\n")
+      .trim();
+  }
+  return "";
 }
 
 function buildToolSchema() {
@@ -52,7 +175,10 @@ function buildToolSchema() {
                     type: "object",
                     properties: {
                       title: { type: "string" },
-                      content: { type: "string", description: "Contenu HTML riche avec surlignage sémantique" },
+                      content: {
+                        type: "string",
+                        description: "Contenu HTML riche avec surlignage sémantique"
+                      },
                       quiz: {
                         type: "array",
                         items: {
@@ -60,25 +186,31 @@ function buildToolSchema() {
                           properties: {
                             type: { type: "string", enum: ["mcq", "tf", "short"] },
                             question: { type: "string" },
-                            choices: { type: "array", items: { type: "string" }, description: "4 choix pour mcq uniquement" },
-                            correctAnswer: { description: "index pour mcq, boolean pour tf, array de strings pour short" },
-                            explanation: { type: "string" },
+                            choices: {
+                              type: "array",
+                              items: { type: "string" },
+                              description: "4 choix pour mcq uniquement"
+                            },
+                            correctAnswer: {
+                              description: "index pour mcq, boolean pour tf, array de strings pour short"
+                            },
+                            explanation: { type: "string" }
                           },
-                          required: ["type", "question", "correctAnswer", "explanation"],
-                        },
-                      },
+                          required: ["type", "question", "correctAnswer", "explanation"]
+                        }
+                      }
                     },
-                    required: ["title", "content", "quiz"],
-                  },
-                },
+                    required: ["title", "content", "quiz"]
+                  }
+                }
               },
-              required: ["title", "sections"],
-            },
-          },
+              required: ["title", "sections"]
+            }
+          }
         },
-        required: ["title", "chapters"],
-      },
-    },
+        required: ["title", "chapters"]
+      }
+    }
   };
 }
 
@@ -101,84 +233,235 @@ INSTRUCTIONS STRICTES:
    - "short": Réponse courte, correctAnswer = tableau de mots-clés attendus
    Chaque question doit avoir une "explanation" détaillée
 
-IMPORTANT: Le contenu HTML doit être RICHE et DÉTAILLÉ, pas juste une copie du texte. Reformule, structure, et enrichis le contenu pédagogiquement.
+IMPORTANT: Le contenu HTML doit être RICHE et DÉTAILLÉ, pas juste une copie du texte. Reformule, structure, et enrichis le contenu pédagogiquement.`;
 
-Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
+const jsonFallbackPrompt = `Réponds UNIQUEMENT avec un objet JSON valide, sans markdown ni commentaires, avec cette structure exacte:
+{
+  "title": "string",
+  "chapters": [
+    {
+      "title": "string",
+      "sections": [
+        {
+          "title": "string",
+          "content": "string HTML",
+          "quiz": [
+            {
+              "type": "mcq|tf|short",
+              "question": "string",
+              "choices": ["string", "string", "string", "string"],
+              "correctAnswer": 0,
+              "explanation": "string"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`;
 
-async function callAI(apiKey: string, userContent: any) {
+async function fetchGateway(apiKey: string, payload: Record<string, unknown>) {
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      tools: [buildToolSchema()],
-      tool_choice: { type: "function", function: { name: "create_structured_course" } },
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    if (response.status === 429) throw new Error("RATE_LIMIT");
-    if (response.status === 402) throw new Error("NO_CREDITS");
-    const t = await response.text();
-    console.error("AI gateway error:", response.status, t);
+    if (response.status === 429) throw new Error("Trop de requêtes vers l'IA, réessayez dans un instant");
+    if (response.status === 402) throw new Error("Crédits IA indisponibles pour le moment");
+    const text = await response.text();
+    console.error("AI gateway error:", response.status, text);
     throw new Error(`AI gateway error: ${response.status}`);
   }
 
-  const data = await response.json();
+  return response.json();
+}
+
+function extractCourseFromResponse(data: any) {
   let course: any = null;
 
-  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
   if (toolCall?.function?.arguments) {
     course = typeof toolCall.function.arguments === "string"
       ? JSON.parse(toolCall.function.arguments)
       : toolCall.function.arguments;
   }
 
-  if (!course) {
-    const content = data.choices?.[0]?.message?.content || "";
-    const extracted = extractJsonFromText(content);
-    if (extracted?.title && extracted?.chapters) course = extracted;
-  }
+  if (course?.title && Array.isArray(course?.chapters)) return course;
 
-  return course;
+  const content = extractMessageText(data?.choices?.[0]?.message?.content);
+  const extracted = extractJsonFromText(content);
+  if (extracted?.title && Array.isArray(extracted?.chapters)) return extracted;
+
+  return null;
 }
 
-async function processTextContent(apiKey: string, content: string, fileName?: string) {
-  const trimmedContent = content.trim();
-  if (!trimmedContent) throw new Error("Le contenu du document est vide");
+async function buildStructuredCourse(apiKey: string, userContent: string) {
+  const toolResponse = await fetchGateway(apiKey, {
+    model: "google/gemini-2.5-pro",
+    temperature: 0.2,
+    messages: [
+      { role: "system", content: `${systemPrompt}\n\nRéponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.` },
+      { role: "user", content: userContent },
+    ],
+    tools: [buildToolSchema()],
+    tool_choice: { type: "function", function: { name: "create_structured_course" } },
+  });
 
-  const chunkSize = 60000;
-  if (trimmedContent.length <= chunkSize) {
-    return callAI(
-      apiKey,
-      `Voici le contenu${fileName ? ` du document \"${fileName}\"` : " du cours"} à structurer:\n\n${trimmedContent}`
-    );
+  const fromTools = extractCourseFromResponse(toolResponse);
+  if (fromTools) return fromTools;
+
+  const fallbackResponse = await fetchGateway(apiKey, {
+    model: "google/gemini-2.5-pro",
+    temperature: 0.2,
+    messages: [
+      { role: "system", content: `${systemPrompt}\n\n${jsonFallbackPrompt}` },
+      { role: "user", content: userContent },
+    ],
+  });
+
+  return extractCourseFromResponse(fallbackResponse);
+}
+
+async function summarizeChunk(apiKey: string, chunk: string, index: number, total: number, fileName?: string) {
+  const data = await fetchGateway(apiKey, {
+    model: "google/gemini-2.5-flash",
+    temperature: 0.2,
+    messages: [
+      {
+        role: "system",
+        content: `Tu produis une synthèse intermédiaire fidèle d'un document pédagogique. Réponds en markdown compact avec ces sections: Titre, Idées clés, Définitions/termes, Exemples, Points de vigilance. Ne crée aucune information absente du texte. Garde les détails utiles pour reconstruire un cours.`
+      },
+      {
+        role: "user",
+        content: `Bloc ${index + 1}/${total}${fileName ? ` du document "${fileName}"` : ""} :\n\n${chunk}`
+      },
+    ],
+  });
+
+  const summary = extractMessageText(data?.choices?.[0]?.message?.content);
+  if (!summary) throw new Error(`Résumé intermédiaire vide pour le bloc ${index + 1}`);
+  return `## Bloc ${index + 1}/${total}\n${summary}`;
+}
+
+async function mergeSummaryGroup(apiKey: string, summaries: string[], level: number, groupIndex: number, fileName?: string) {
+  const data = await fetchGateway(apiKey, {
+    model: "google/gemini-2.5-flash",
+    temperature: 0.2,
+    messages: [
+      {
+        role: "system",
+        content: `Fusionne plusieurs synthèses partielles en une synthèse plus compacte sans perdre la structure, les définitions importantes, les exemples et les points de vigilance. Réponds en markdown clair et dense.`
+      },
+      {
+        role: "user",
+        content: `Niveau ${level}, groupe ${groupIndex + 1}${fileName ? ` pour "${fileName}"` : ""} :\n\n${summaries.join("\n\n")}`
+      },
+    ],
+  });
+
+  const merged = extractMessageText(data?.choices?.[0]?.message?.content);
+  if (!merged) throw new Error("Impossible de condenser les synthèses intermédiaires");
+  return `# Synthèse fusionnée ${level}.${groupIndex + 1}\n${merged}`;
+}
+
+async function compressSummaries(
+  apiKey: string,
+  summaries: string[],
+  fileName?: string,
+  onProgress?: (progress: number) => Promise<void>
+) {
+  let current = summaries;
+  let level = 1;
+
+  while (current.join("\n\n").length > FINAL_CONTEXT_MAX_CHARS && current.length > 1) {
+    const groups = groupItems(current, 4);
+    const next: string[] = [];
+
+    for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+      const merged = await mergeSummaryGroup(apiKey, groups[groupIndex], level, groupIndex, fileName);
+      next.push(merged);
+      if (onProgress) {
+        const progress = 65 + Math.round(((groupIndex + 1) / groups.length) * 15);
+        await onProgress(Math.min(progress, 80));
+      }
+    }
+
+    current = next;
+    level += 1;
   }
 
-  const condensed = trimmedContent.length > 80000
-    ? trimmedContent.substring(0, 60000) + "\n\n[... section intermédiaire omise ...]\n\n" + trimmedContent.substring(trimmedContent.length - 20000)
-    : trimmedContent;
+  return truncateMiddle(current.join("\n\n"), FINAL_CONTEXT_MAX_CHARS);
+}
 
-  return callAI(
+async function processLargeTextContent(
+  apiKey: string,
+  content: string,
+  fileName?: string,
+  onProgress?: (progress: number) => Promise<void>
+) {
+  const chunks = splitTextIntoChunks(content);
+  const summaries: string[] = [];
+
+  if (onProgress) await onProgress(10);
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const summary = await summarizeChunk(apiKey, chunks[index], index, chunks.length, fileName);
+    summaries.push(summary);
+    if (onProgress) {
+      const progress = 10 + Math.round(((index + 1) / chunks.length) * 50);
+      await onProgress(Math.min(progress, 60));
+    }
+  }
+
+  if (onProgress) await onProgress(65);
+  const compressedSummary = await compressSummaries(apiKey, summaries, fileName, onProgress);
+
+  if (onProgress) await onProgress(85);
+  return buildStructuredCourse(
     apiKey,
-    `Voici un document volumineux${fileName ? ` (\"${fileName}\")` : ""} de ${trimmedContent.length} caractères. Structure-le en un cours complet.\n\nCONTENU:\n${condensed}`
+    `Voici la synthèse hiérarchique d'un document volumineux${fileName ? ` ("${fileName}")` : ""}. Construis le cours complet en t'appuyant uniquement sur cette synthèse fidèle :\n\n${compressedSummary}`
   );
 }
 
-// Background processing function
+async function processTextContent(
+  apiKey: string,
+  content: string,
+  fileName?: string,
+  onProgress?: (progress: number) => Promise<void>
+) {
+  const trimmedContent = normalizeTextContent(content);
+  if (!trimmedContent) throw new Error("Le contenu du document est vide");
+
+  if (trimmedContent.length <= DIRECT_MODEL_MAX_CHARS) {
+    return buildStructuredCourse(
+      apiKey,
+      `Voici le contenu${fileName ? ` du document "${fileName}"` : " du cours"} à structurer :\n\n${trimmedContent}`
+    );
+  }
+
+  return processLargeTextContent(apiKey, trimmedContent, fileName, onProgress);
+}
+
+async function updateJob(
+  supabase: ReturnType<typeof getSupabase>,
+  jobId: string,
+  patch: Record<string, unknown>
+) {
+  await supabase.from("processing_jobs").update(patch).eq("id", jobId);
+}
+
 async function processInBackground(jobId: string, body: any) {
   const supabase = getSupabase();
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
 
   try {
     let course: any = null;
+    await updateJob(supabase, jobId, { status: "processing", progress: 5 });
 
     if (body.storagePath) {
       console.log("Processing file from storage:", body.storagePath);
@@ -194,87 +477,61 @@ async function processInBackground(jobId: string, body: any) {
       const fileSizeMB = bytes.length / (1024 * 1024);
       console.log(`File size: ${fileSizeMB.toFixed(2)} MB`);
 
-      if (fileSizeMB > 15) {
-        const maxBytes = 10 * 1024 * 1024;
-        const truncatedBytes = bytes.slice(0, maxBytes);
-        const chunkSize = 8192;
-        let binary = "";
-        for (let i = 0; i < truncatedBytes.length; i += chunkSize) {
-          const chunk = truncatedBytes.subarray(i, Math.min(i + chunkSize, truncatedBytes.length));
-          for (let j = 0; j < chunk.length; j++) {
-            binary += String.fromCharCode(chunk[j]);
-          }
+      const limitedBytes = fileSizeMB > 15 ? bytes.slice(0, 10 * 1024 * 1024) : bytes;
+      let binary = "";
+      const chunkSize = 8192;
+      for (let index = 0; index < limitedBytes.length; index += chunkSize) {
+        const chunk = limitedBytes.subarray(index, Math.min(index + chunkSize, limitedBytes.length));
+        for (let inner = 0; inner < chunk.length; inner += 1) {
+          binary += String.fromCharCode(chunk[inner]);
         }
-        const base64 = btoa(binary);
-        const mimeType = body.fileType || "application/pdf";
-
-        course = await callAI(LOVABLE_API_KEY, [
-          {
-            type: "text",
-            text: `Voici un document volumineux "${body.fileName}" (${fileSizeMB.toFixed(0)} MB, tronqué aux premiers ${(maxBytes / 1024 / 1024).toFixed(0)} MB). Structure-le en un cours complet.`,
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:${mimeType};base64,${base64}` },
-          },
-        ]);
-      } else {
-        const chunkSize = 8192;
-        let binary = "";
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-          for (let j = 0; j < chunk.length; j++) {
-            binary += String.fromCharCode(chunk[j]);
-          }
-        }
-        const base64 = btoa(binary);
-        const mimeType = body.fileType || "application/pdf";
-
-        course = await callAI(LOVABLE_API_KEY, [
-          {
-            type: "text",
-            text: `Voici un document "${body.fileName}" à transformer en cours structuré. Analyse TOUT le contenu du document.`,
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:${mimeType};base64,${base64}` },
-          },
-        ]);
       }
+
+      await updateJob(supabase, jobId, { progress: 35 });
+      const base64 = btoa(binary);
+      const mimeType = body.fileType || "application/pdf";
+      course = await buildStructuredCourse(
+        lovableApiKey,
+        `Analyse ce document ${body.fileName ? `"${body.fileName}"` : ""}. ${fileSizeMB > 15 ? "Le document a été tronqué à sa partie initiale pour respecter les limites techniques. " : ""}Appuie-toi sur le contenu fourni pour construire un cours structuré.\n\n[data:${mimeType};base64,${base64}]`
+      );
 
       await supabase.storage.from("course-files").remove([body.storagePath]);
     } else if (body.file?.base64) {
       const mimeType = body.file.type || "application/pdf";
-      course = await callAI(LOVABLE_API_KEY, [
-        {
-          type: "text",
-          text: `Voici un document "${body.file.name}" à transformer en cours structuré.`,
-        },
-        {
-          type: "image_url",
-          image_url: { url: `data:${mimeType};base64,${body.file.base64}` },
-        },
-      ]);
+      course = await buildStructuredCourse(
+        lovableApiKey,
+        `Analyse ce document "${body.file.name}" et transforme-le en cours structuré.\n\n[data:${mimeType};base64,${body.file.base64}]`
+      );
     } else if (body.content) {
-      course = await processTextContent(LOVABLE_API_KEY, body.content, body.fileName);
+      course = await processTextContent(lovableApiKey, body.content, body.fileName, async (progress) => {
+        await updateJob(supabase, jobId, { progress });
+      });
     }
 
-    if (!course) throw new Error("No structured output from AI");
+    if (!course) throw new Error("L'IA n'a pas renvoyé de structure exploitable");
 
-    await supabase
-      .from("processing_jobs")
-      .update({ status: "complete", progress: 100, result: course })
-      .eq("id", jobId);
-
+    await updateJob(supabase, jobId, { status: "complete", progress: 100, result: course, error: null });
     console.log("Job completed:", jobId);
   } catch (error) {
     console.error("Background processing error:", error);
-    const msg = error instanceof Error ? error.message : "Erreur inconnue";
-    await supabase
-      .from("processing_jobs")
-      .update({ status: "failed", error: msg })
-      .eq("id", jobId);
+    const message = error instanceof Error ? error.message : "Erreur inconnue";
+    await updateJob(supabase, jobId, { status: "failed", error: message });
   }
+}
+
+async function createProcessingJob(body: any) {
+  const supabase = getSupabase();
+  const { data: job, error } = await supabase
+    .from("processing_jobs")
+    .insert({ status: "processing", progress: 0 })
+    .select()
+    .single();
+
+  if (error || !job) throw new Error("Failed to create processing job");
+
+  // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+  EdgeRuntime.waitUntil(processInBackground(job.id, body));
+  return job.id;
 }
 
 serve(async (req) => {
@@ -292,41 +549,36 @@ serve(async (req) => {
     }
 
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
+    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY is not configured");
 
     if (content && typeof content === "string" && !file && !storagePath) {
-      const course = await processTextContent(lovableApiKey, content, fileName);
-      if (!course) throw new Error("No structured output from AI");
+      const normalizedContent = normalizeTextContent(content);
 
-      return new Response(JSON.stringify({ result: course }), {
+      if (normalizedContent.length <= DIRECT_REQUEST_MAX_CHARS) {
+        const course = await processTextContent(lovableApiKey, normalizedContent, fileName);
+        if (!course) throw new Error("L'IA n'a pas renvoyé de structure exploitable");
+
+        return new Response(JSON.stringify({ result: course }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const jobId = await createProcessingJob({ ...body, content: normalizedContent });
+      return new Response(JSON.stringify({ job_id: jobId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = getSupabase();
-    const { data: job, error: jobError } = await supabase
-      .from("processing_jobs")
-      .insert({ status: "processing", progress: 0 })
-      .select()
-      .single();
-
-    if (jobError || !job) throw new Error("Failed to create processing job");
-
-    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
-    EdgeRuntime.waitUntil(processInBackground(job.id, body));
-
-    return new Response(JSON.stringify({ job_id: job.id }), {
+    const jobId = await createProcessingJob(body);
+    return new Response(JSON.stringify({ job_id: jobId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
-  } catch (e) {
-    console.error("process-course error:", e);
-    const msg = e instanceof Error ? e.message : "Erreur inconnue";
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  } catch (error) {
+    console.error("process-course error:", error);
+    const message = error instanceof Error ? error.message : "Erreur inconnue";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

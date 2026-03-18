@@ -32,7 +32,7 @@ const ACCEPTED_TYPES = {
 };
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const MAX_POLL_ATTEMPTS = 45;
+const MAX_POLL_ATTEMPTS = 90;
 
 export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProps) {
   const [step, setStep] = useState<Step>("upload");
