@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,26 +23,59 @@ function extractJsonFromText(text: string): any {
   } catch { return null; }
 }
 
+function buildToolSchema() {
+  return {
+    type: "function",
+    function: {
+      name: "create_structured_course",
+      description: "Crée un cours structuré avec chapitres, sections, contenu HTML et quiz",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Titre du cours" },
+          chapters: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                sections: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      title: { type: "string" },
+                      content: { type: "string", description: "Contenu HTML riche avec surlignage sémantique" },
+                      quiz: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            type: { type: "string", enum: ["mcq", "tf", "short"] },
+                            question: { type: "string" },
+                            choices: { type: "array", items: { type: "string" }, description: "4 choix pour mcq uniquement" },
+                            correctAnswer: { description: "index pour mcq, boolean pour tf, array de strings pour short" },
+                            explanation: { type: "string" },
+                          },
+                          required: ["type", "question", "correctAnswer", "explanation"],
+                        },
+                      },
+                    },
+                    required: ["title", "content", "quiz"],
+                  },
+                },
+              },
+              required: ["title", "sections"],
+            },
+          },
+        },
+        required: ["title", "chapters"],
+      },
+    },
+  };
+}
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  try {
-    const body = await req.json();
-    const { content, file } = body;
-
-    // Must have either text content or a file
-    if ((!content || typeof content !== "string") && !file) {
-      return new Response(JSON.stringify({ error: "Le champ 'content' ou 'file' est requis" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const systemPrompt = `Tu es un assistant pédagogique expert. Tu reçois du contenu (texte brut ou document) et tu dois le transformer en un cours structuré au format JSON.
+const systemPrompt = `Tu es un assistant pédagogique expert. Tu reçois du contenu (texte brut ou document) et tu dois le transformer en un cours structuré au format JSON.
 
 INSTRUCTIONS STRICTES:
 1. Analyse le contenu et identifie les thèmes principaux pour créer des chapitres
@@ -64,139 +98,167 @@ IMPORTANT: Le contenu HTML doit être RICHE et DÉTAILLÉ, pas juste une copie d
 
 Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
 
-    // Build user message content (multimodal if file provided)
-    let userContent: any;
+async function callAI(apiKey: string, userContent: any) {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-pro",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      tools: [buildToolSchema()],
+      tool_choice: { type: "function", function: { name: "create_structured_course" } },
+    }),
+  });
 
-    if (file && file.base64) {
-      // Multimodal: send document as base64
+  if (!response.ok) {
+    if (response.status === 429) throw new Error("RATE_LIMIT");
+    if (response.status === 402) throw new Error("NO_CREDITS");
+    const t = await response.text();
+    console.error("AI gateway error:", response.status, t);
+    throw new Error(`AI gateway error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  let course: any = null;
+
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (toolCall?.function?.arguments) {
+    course = typeof toolCall.function.arguments === "string"
+      ? JSON.parse(toolCall.function.arguments)
+      : toolCall.function.arguments;
+  }
+
+  if (!course) {
+    const content = data.choices?.[0]?.message?.content || "";
+    console.log("No tool_call, trying content fallback. Content length:", content.length);
+    const extracted = extractJsonFromText(content);
+    if (extracted?.title && extracted?.chapters) course = extracted;
+  }
+
+  return course;
+}
+
+async function processChunkedText(apiKey: string, content: string) {
+  const CHUNK_SIZE = 60000;
+
+  // If content fits in one request, just send it
+  if (content.length <= CHUNK_SIZE) {
+    return await callAI(apiKey, `Voici le contenu du cours à structurer:\n\n${content}`);
+  }
+
+  // Split into chunks and process each as a "part"
+  const chunks: string[] = [];
+  for (let i = 0; i < content.length; i += CHUNK_SIZE) {
+    chunks.push(content.substring(i, i + CHUNK_SIZE));
+  }
+
+  console.log(`Processing ${chunks.length} chunks of ~${CHUNK_SIZE} chars each`);
+
+  // Process all chunks together by sending a summary request
+  // We'll send the first 60k + last 20k to capture beginning and end
+  const condensed = content.length > 80000
+    ? content.substring(0, 60000) + "\n\n[... section intermédiaire omise ...]\n\n" + content.substring(content.length - 20000)
+    : content;
+
+  const course = await callAI(apiKey, `Voici un document volumineux (${content.length} caractères au total). Structure-le en un cours complet avec chapitres, sections, contenu HTML riche et quiz.\n\nCONTENU:\n${condensed}`);
+
+  return course;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const body = await req.json();
+    const { content, file, storagePath } = body;
+
+    if ((!content || typeof content !== "string") && !file && !storagePath) {
+      return new Response(JSON.stringify({ error: "Le champ 'content', 'file' ou 'storagePath' est requis" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    let course: any = null;
+
+    // Case 1: File uploaded to storage
+    if (storagePath) {
+      console.log("Processing file from storage:", storagePath);
+      
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const { data: fileData, error: dlError } = await supabase.storage
+        .from("course-files")
+        .download(storagePath);
+
+      if (dlError) {
+        console.error("Storage download error:", dlError);
+        throw new Error("Impossible de télécharger le fichier");
+      }
+
+      // Convert blob to base64
+      const arrayBuffer = await fileData.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const chunkSize = 8192;
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        for (let j = 0; j < chunk.length; j++) {
+          binary += String.fromCharCode(chunk[j]);
+        }
+      }
+      const base64 = btoa(binary);
+
+      const mimeType = body.fileType || "application/pdf";
+      const fileName = body.fileName || "document";
+
+      console.log(`File downloaded: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB, sending to AI as ${mimeType}`);
+
+      course = await callAI(LOVABLE_API_KEY, [
+        {
+          type: "text",
+          text: `Voici un document "${fileName}" à transformer en cours structuré. Analyse TOUT le contenu du document et structure-le en chapitres, sections avec contenu HTML riche et quiz.`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: `data:${mimeType};base64,${base64}` },
+        },
+      ]);
+
+      // Clean up storage file after processing
+      await supabase.storage.from("course-files").remove([storagePath]);
+    }
+    // Case 2: Base64 file sent directly (small files, backward compat)
+    else if (file && file.base64) {
       const mimeType = file.type || "application/pdf";
-      userContent = [
+      course = await callAI(LOVABLE_API_KEY, [
         {
           type: "text",
           text: `Voici un document "${file.name}" à transformer en cours structuré. Analyse tout le contenu du document et structure-le en chapitres, sections avec contenu HTML riche et quiz.`,
         },
         {
           type: "image_url",
-          image_url: {
-            url: `data:${mimeType};base64,${file.base64}`,
-          },
+          image_url: { url: `data:${mimeType};base64,${file.base64}` },
         },
-      ];
-    } else {
-      // Text content
-      const truncated = content.length > 15000 ? content.substring(0, 15000) + "\n[... contenu tronqué]" : content;
-      userContent = `Voici le contenu du cours à structurer:\n\n${truncated}`;
+      ]);
     }
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "create_structured_course",
-              description: "Crée un cours structuré avec chapitres, sections, contenu HTML et quiz",
-              parameters: {
-                type: "object",
-                properties: {
-                  title: { type: "string", description: "Titre du cours" },
-                  chapters: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string" },
-                        sections: {
-                          type: "array",
-                          items: {
-                            type: "object",
-                            properties: {
-                              title: { type: "string" },
-                              content: { type: "string", description: "Contenu HTML riche avec surlignage sémantique" },
-                              quiz: {
-                                type: "array",
-                                items: {
-                                  type: "object",
-                                  properties: {
-                                    type: { type: "string", enum: ["mcq", "tf", "short"] },
-                                    question: { type: "string" },
-                                    choices: { type: "array", items: { type: "string" }, description: "4 choix pour mcq uniquement" },
-                                    correctAnswer: { description: "index pour mcq, boolean pour tf, array de strings pour short" },
-                                    explanation: { type: "string" },
-                                  },
-                                  required: ["type", "question", "correctAnswer", "explanation"],
-                                },
-                              },
-                            },
-                            required: ["title", "content", "quiz"],
-                          },
-                        },
-                      },
-                      required: ["title", "sections"],
-                    },
-                  },
-                },
-                required: ["title", "chapters"],
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "create_structured_course" } },
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Trop de requêtes. Réessayez dans quelques instants." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Crédits IA insuffisants." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let course: any = null;
-
-    // Try tool_calls first
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      course = typeof toolCall.function.arguments === "string"
-        ? JSON.parse(toolCall.function.arguments)
-        : toolCall.function.arguments;
-    }
-
-    // Fallback: extract JSON from message content
-    if (!course) {
-      const content = data.choices?.[0]?.message?.content || "";
-      console.log("No tool_call, trying content fallback. Content length:", content.length);
-      
-      const extracted = extractJsonFromText(content);
-      if (extracted && extracted.title && extracted.chapters) {
-        course = extracted;
-      }
+    // Case 3: Text content (with chunking for large text)
+    else if (content) {
+      course = await processChunkedText(LOVABLE_API_KEY, content);
     }
 
     if (!course) {
-      console.error("AI response structure:", JSON.stringify(data.choices?.[0]?.message, null, 2).substring(0, 500));
       throw new Error("No structured output from AI");
     }
 
@@ -205,8 +267,19 @@ Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
     });
   } catch (e) {
     console.error("process-course error:", e);
+    const msg = e instanceof Error ? e.message : "Erreur inconnue";
+    if (msg === "RATE_LIMIT") {
+      return new Response(JSON.stringify({ error: "Trop de requêtes. Réessayez dans quelques instants." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (msg === "NO_CREDITS") {
+      return new Response(JSON.stringify({ error: "Crédits IA insuffisants." }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Erreur inconnue" }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

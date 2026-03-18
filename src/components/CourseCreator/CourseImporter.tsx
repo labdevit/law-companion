@@ -31,12 +31,12 @@ const ACCEPTED_TYPES = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
 };
 
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProps) {
   const [step, setStep] = useState<Step>("upload");
   const [rawContent, setRawContent] = useState("");
-  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; base64: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; base64?: string; rawFile?: File } | null>(null);
   const [parsedCourse, setParsedCourse] = useState<ParsedCourse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [icon, setIcon] = useState(COURSE_ICONS[0]);
@@ -51,7 +51,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      setError("Le fichier est trop volumineux (max 15 Mo)");
+      setError("Le fichier est trop volumineux (max 50 Mo)");
       return;
     }
 
@@ -74,15 +74,22 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
       reader.onerror = () => setError("Erreur lors de la lecture du fichier");
       reader.readAsText(file);
     } else {
-      // PDF or DOCX → base64
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = (event.target?.result as string).split(",")[1];
-        setAttachedFile({ name: file.name, type: file.type, base64 });
+      // For large files, keep the raw File object for storage upload
+      const STORAGE_THRESHOLD = 4 * 1024 * 1024; // 4MB
+      if (file.size > STORAGE_THRESHOLD) {
+        setAttachedFile({ name: file.name, type: file.type, rawFile: file });
         setRawContent("");
-      };
-      reader.onerror = () => setError("Erreur lors de la lecture du fichier");
-      reader.readAsDataURL(file);
+      } else {
+        // Small files: base64 inline (backward compat)
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = (event.target?.result as string).split(",")[1];
+          setAttachedFile({ name: file.name, type: file.type, base64 });
+          setRawContent("");
+        };
+        reader.onerror = () => setError("Erreur lors de la lecture du fichier");
+        reader.readAsDataURL(file);
+      }
     }
 
     // Reset input
@@ -112,8 +119,23 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
 
     try {
       const body: any = {};
-      if (attachedFile) {
-        body.file = attachedFile;
+      
+      if (attachedFile?.rawFile) {
+        // Large file: upload to storage first
+        setProcessingMessage("Téléversement du fichier...");
+        const storagePath = `uploads/${Date.now()}_${attachedFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("course-files")
+          .upload(storagePath, attachedFile.rawFile, {
+            contentType: attachedFile.type,
+          });
+        if (uploadError) throw new Error("Erreur lors du téléversement: " + uploadError.message);
+        
+        body.storagePath = storagePath;
+        body.fileType = attachedFile.type;
+        body.fileName = attachedFile.name;
+      } else if (attachedFile?.base64) {
+        body.file = { name: attachedFile.name, type: attachedFile.type, base64: attachedFile.base64 };
       } else {
         body.content = rawContent;
       }
@@ -252,7 +274,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
                   <>
                     <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
                     <p className="text-sm font-medium">Cliquez pour importer un fichier</p>
-                    <p className="text-xs text-muted-foreground mt-1">.pdf, .docx, .txt, .md supportés (max 15 Mo)</p>
+                    <p className="text-xs text-muted-foreground mt-1">.pdf, .docx, .txt, .md supportés (max 50 Mo)</p>
                   </>
                 )}
                 <input
