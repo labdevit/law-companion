@@ -6,7 +6,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
+function extractJsonFromText(text: string): any {
+  try {
+    let cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const jsonStart = cleaned.search(/[\{\[]/);
+    if (jsonStart === -1) return null;
+    const endChar = cleaned[jsonStart] === '[' ? ']' : '}';
+    const jsonEnd = cleaned.lastIndexOf(endChar);
+    if (jsonEnd === -1) return null;
+    cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+    try { return JSON.parse(cleaned); } catch {
+      cleaned = cleaned.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+      return JSON.parse(cleaned);
+    }
+  } catch { return null; }
+}
+
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
