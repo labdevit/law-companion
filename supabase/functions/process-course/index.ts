@@ -150,6 +150,28 @@ async function callAI(apiKey: string, userContent: any) {
   return course;
 }
 
+async function processTextContent(apiKey: string, content: string, fileName?: string) {
+  const trimmedContent = content.trim();
+  if (!trimmedContent) throw new Error("Le contenu du document est vide");
+
+  const chunkSize = 60000;
+  if (trimmedContent.length <= chunkSize) {
+    return callAI(
+      apiKey,
+      `Voici le contenu${fileName ? ` du document \"${fileName}\"` : " du cours"} à structurer:\n\n${trimmedContent}`
+    );
+  }
+
+  const condensed = trimmedContent.length > 80000
+    ? trimmedContent.substring(0, 60000) + "\n\n[... section intermédiaire omise ...]\n\n" + trimmedContent.substring(trimmedContent.length - 20000)
+    : trimmedContent;
+
+  return callAI(
+    apiKey,
+    `Voici un document volumineux${fileName ? ` (\"${fileName}\")` : ""} de ${trimmedContent.length} caractères. Structure-le en un cours complet.\n\nCONTENU:\n${condensed}`
+  );
+}
+
 // Background processing function
 async function processInBackground(jobId: string, body: any) {
   const supabase = getSupabase();
@@ -161,23 +183,18 @@ async function processInBackground(jobId: string, body: any) {
     if (body.storagePath) {
       console.log("Processing file from storage:", body.storagePath);
 
-      // Download file as stream to reduce memory
       const { data: fileData, error: dlError } = await supabase.storage
         .from("course-files")
         .download(body.storagePath);
 
       if (dlError) throw new Error("Impossible de télécharger le fichier");
 
-      // Convert to base64 in chunks to reduce peak memory
       const arrayBuffer = await fileData.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      
-      // Check size - if too large for base64 in memory, extract text summary
       const fileSizeMB = bytes.length / (1024 * 1024);
       console.log(`File size: ${fileSizeMB.toFixed(2)} MB`);
 
       if (fileSizeMB > 15) {
-        // For very large files, send only first ~10MB to AI
         const maxBytes = 10 * 1024 * 1024;
         const truncatedBytes = bytes.slice(0, maxBytes);
         const chunkSize = 8192;
@@ -194,7 +211,7 @@ async function processInBackground(jobId: string, body: any) {
         course = await callAI(LOVABLE_API_KEY, [
           {
             type: "text",
-            text: `Voici un document volumineux "${body.fileName}" (${fileSizeMB.toFixed(0)} MB, tronqué aux premiers ${(maxBytes/1024/1024).toFixed(0)} MB). Structure-le en un cours complet.`,
+            text: `Voici un document volumineux "${body.fileName}" (${fileSizeMB.toFixed(0)} MB, tronqué aux premiers ${(maxBytes / 1024 / 1024).toFixed(0)} MB). Structure-le en un cours complet.`,
           },
           {
             type: "image_url",
@@ -202,7 +219,6 @@ async function processInBackground(jobId: string, body: any) {
           },
         ]);
       } else {
-        // Normal size - send full file
         const chunkSize = 8192;
         let binary = "";
         for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -226,9 +242,7 @@ async function processInBackground(jobId: string, body: any) {
         ]);
       }
 
-      // Clean up storage
       await supabase.storage.from("course-files").remove([body.storagePath]);
-
     } else if (body.file?.base64) {
       const mimeType = body.file.type || "application/pdf";
       course = await callAI(LOVABLE_API_KEY, [
@@ -242,21 +256,11 @@ async function processInBackground(jobId: string, body: any) {
         },
       ]);
     } else if (body.content) {
-      const content = body.content;
-      const CHUNK_SIZE = 60000;
-      if (content.length <= CHUNK_SIZE) {
-        course = await callAI(LOVABLE_API_KEY, `Voici le contenu du cours à structurer:\n\n${content}`);
-      } else {
-        const condensed = content.length > 80000
-          ? content.substring(0, 60000) + "\n\n[... section intermédiaire omise ...]\n\n" + content.substring(content.length - 20000)
-          : content;
-        course = await callAI(LOVABLE_API_KEY, `Voici un document volumineux (${content.length} caractères). Structure-le en un cours complet.\n\nCONTENU:\n${condensed}`);
-      }
+      course = await processTextContent(LOVABLE_API_KEY, body.content, body.fileName);
     }
 
     if (!course) throw new Error("No structured output from AI");
 
-    // Save result
     await supabase
       .from("processing_jobs")
       .update({ status: "complete", progress: 100, result: course })
@@ -278,7 +282,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { content, file, storagePath } = body;
+    const { content, file, storagePath, fileName } = body;
 
     if ((!content || typeof content !== "string") && !file && !storagePath) {
       return new Response(JSON.stringify({ error: "Le champ 'content', 'file' ou 'storagePath' est requis" }), {
@@ -287,13 +291,21 @@ serve(async (req) => {
       });
     }
 
-    if (!Deno.env.get("LOVABLE_API_KEY")) {
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableApiKey) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const supabase = getSupabase();
+    if (content && typeof content === "string" && !file && !storagePath) {
+      const course = await processTextContent(lovableApiKey, content, fileName);
+      if (!course) throw new Error("No structured output from AI");
 
-    // Create a job record
+      return new Response(JSON.stringify({ result: course }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = getSupabase();
     const { data: job, error: jobError } = await supabase
       .from("processing_jobs")
       .insert({ status: "processing", progress: 0 })
@@ -302,11 +314,9 @@ serve(async (req) => {
 
     if (jobError || !job) throw new Error("Failed to create processing job");
 
-    // Start background processing (non-blocking)
     // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
     EdgeRuntime.waitUntil(processInBackground(job.id, body));
 
-    // Return immediately with job ID
     return new Response(JSON.stringify({ job_id: job.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
