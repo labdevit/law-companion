@@ -274,7 +274,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
                   <>
                     <Upload className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
                     <p className="text-sm font-medium">Cliquez pour importer un fichier</p>
-                    <p className="text-xs text-muted-foreground mt-1">.pdf, .docx, .txt, .md supportés (max 15 Mo)</p>
+                    <p className="text-xs text-muted-foreground mt-1">.pdf, .docx, .txt, .md supportés (max 50 Mo)</p>
                   </>
                 )}
                 <input
