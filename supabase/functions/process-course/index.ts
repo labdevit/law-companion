@@ -23,6 +23,7 @@ function extractJsonFromText(text: string): any {
 }
 
 
+serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
