@@ -7,6 +7,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function getSupabase() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+}
+
 function extractJsonFromText(text: string): any {
   try {
     let cleaned = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
@@ -106,7 +113,7 @@ async function callAI(apiKey: string, userContent: any) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -136,7 +143,6 @@ async function callAI(apiKey: string, userContent: any) {
 
   if (!course) {
     const content = data.choices?.[0]?.message?.content || "";
-    console.log("No tool_call, trying content fallback. Content length:", content.length);
     const extracted = extractJsonFromText(content);
     if (extracted?.title && extracted?.chapters) course = extracted;
   }
@@ -144,31 +150,127 @@ async function callAI(apiKey: string, userContent: any) {
   return course;
 }
 
-async function processChunkedText(apiKey: string, content: string) {
-  const CHUNK_SIZE = 60000;
+// Background processing function
+async function processInBackground(jobId: string, body: any) {
+  const supabase = getSupabase();
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-  // If content fits in one request, just send it
-  if (content.length <= CHUNK_SIZE) {
-    return await callAI(apiKey, `Voici le contenu du cours à structurer:\n\n${content}`);
+  try {
+    let course: any = null;
+
+    if (body.storagePath) {
+      console.log("Processing file from storage:", body.storagePath);
+
+      // Download file as stream to reduce memory
+      const { data: fileData, error: dlError } = await supabase.storage
+        .from("course-files")
+        .download(body.storagePath);
+
+      if (dlError) throw new Error("Impossible de télécharger le fichier");
+
+      // Convert to base64 in chunks to reduce peak memory
+      const arrayBuffer = await fileData.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      
+      // Check size - if too large for base64 in memory, extract text summary
+      const fileSizeMB = bytes.length / (1024 * 1024);
+      console.log(`File size: ${fileSizeMB.toFixed(2)} MB`);
+
+      if (fileSizeMB > 15) {
+        // For very large files, send only first ~10MB to AI
+        const maxBytes = 10 * 1024 * 1024;
+        const truncatedBytes = bytes.slice(0, maxBytes);
+        const chunkSize = 8192;
+        let binary = "";
+        for (let i = 0; i < truncatedBytes.length; i += chunkSize) {
+          const chunk = truncatedBytes.subarray(i, Math.min(i + chunkSize, truncatedBytes.length));
+          for (let j = 0; j < chunk.length; j++) {
+            binary += String.fromCharCode(chunk[j]);
+          }
+        }
+        const base64 = btoa(binary);
+        const mimeType = body.fileType || "application/pdf";
+
+        course = await callAI(LOVABLE_API_KEY, [
+          {
+            type: "text",
+            text: `Voici un document volumineux "${body.fileName}" (${fileSizeMB.toFixed(0)} MB, tronqué aux premiers ${(maxBytes/1024/1024).toFixed(0)} MB). Structure-le en un cours complet.`,
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:${mimeType};base64,${base64}` },
+          },
+        ]);
+      } else {
+        // Normal size - send full file
+        const chunkSize = 8192;
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+          for (let j = 0; j < chunk.length; j++) {
+            binary += String.fromCharCode(chunk[j]);
+          }
+        }
+        const base64 = btoa(binary);
+        const mimeType = body.fileType || "application/pdf";
+
+        course = await callAI(LOVABLE_API_KEY, [
+          {
+            type: "text",
+            text: `Voici un document "${body.fileName}" à transformer en cours structuré. Analyse TOUT le contenu du document.`,
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:${mimeType};base64,${base64}` },
+          },
+        ]);
+      }
+
+      // Clean up storage
+      await supabase.storage.from("course-files").remove([body.storagePath]);
+
+    } else if (body.file?.base64) {
+      const mimeType = body.file.type || "application/pdf";
+      course = await callAI(LOVABLE_API_KEY, [
+        {
+          type: "text",
+          text: `Voici un document "${body.file.name}" à transformer en cours structuré.`,
+        },
+        {
+          type: "image_url",
+          image_url: { url: `data:${mimeType};base64,${body.file.base64}` },
+        },
+      ]);
+    } else if (body.content) {
+      const content = body.content;
+      const CHUNK_SIZE = 60000;
+      if (content.length <= CHUNK_SIZE) {
+        course = await callAI(LOVABLE_API_KEY, `Voici le contenu du cours à structurer:\n\n${content}`);
+      } else {
+        const condensed = content.length > 80000
+          ? content.substring(0, 60000) + "\n\n[... section intermédiaire omise ...]\n\n" + content.substring(content.length - 20000)
+          : content;
+        course = await callAI(LOVABLE_API_KEY, `Voici un document volumineux (${content.length} caractères). Structure-le en un cours complet.\n\nCONTENU:\n${condensed}`);
+      }
+    }
+
+    if (!course) throw new Error("No structured output from AI");
+
+    // Save result
+    await supabase
+      .from("processing_jobs")
+      .update({ status: "complete", progress: 100, result: course })
+      .eq("id", jobId);
+
+    console.log("Job completed:", jobId);
+  } catch (error) {
+    console.error("Background processing error:", error);
+    const msg = error instanceof Error ? error.message : "Erreur inconnue";
+    await supabase
+      .from("processing_jobs")
+      .update({ status: "failed", error: msg })
+      .eq("id", jobId);
   }
-
-  // Split into chunks and process each as a "part"
-  const chunks: string[] = [];
-  for (let i = 0; i < content.length; i += CHUNK_SIZE) {
-    chunks.push(content.substring(i, i + CHUNK_SIZE));
-  }
-
-  console.log(`Processing ${chunks.length} chunks of ~${CHUNK_SIZE} chars each`);
-
-  // Process all chunks together by sending a summary request
-  // We'll send the first 60k + last 20k to capture beginning and end
-  const condensed = content.length > 80000
-    ? content.substring(0, 60000) + "\n\n[... section intermédiaire omise ...]\n\n" + content.substring(content.length - 20000)
-    : content;
-
-  const course = await callAI(apiKey, `Voici un document volumineux (${content.length} caractères au total). Structure-le en un cours complet avec chapitres, sections, contenu HTML riche et quiz.\n\nCONTENU:\n${condensed}`);
-
-  return course;
 }
 
 serve(async (req) => {
@@ -185,99 +287,33 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    let course: any = null;
-
-    // Case 1: File uploaded to storage
-    if (storagePath) {
-      console.log("Processing file from storage:", storagePath);
-      
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
-      const { data: fileData, error: dlError } = await supabase.storage
-        .from("course-files")
-        .download(storagePath);
-
-      if (dlError) {
-        console.error("Storage download error:", dlError);
-        throw new Error("Impossible de télécharger le fichier");
-      }
-
-      // Convert blob to base64
-      const arrayBuffer = await fileData.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      const chunkSize = 8192;
-      let binary = "";
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-        for (let j = 0; j < chunk.length; j++) {
-          binary += String.fromCharCode(chunk[j]);
-        }
-      }
-      const base64 = btoa(binary);
-
-      const mimeType = body.fileType || "application/pdf";
-      const fileName = body.fileName || "document";
-
-      console.log(`File downloaded: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)} MB, sending to AI as ${mimeType}`);
-
-      course = await callAI(LOVABLE_API_KEY, [
-        {
-          type: "text",
-          text: `Voici un document "${fileName}" à transformer en cours structuré. Analyse TOUT le contenu du document et structure-le en chapitres, sections avec contenu HTML riche et quiz.`,
-        },
-        {
-          type: "image_url",
-          image_url: { url: `data:${mimeType};base64,${base64}` },
-        },
-      ]);
-
-      // Clean up storage file after processing
-      await supabase.storage.from("course-files").remove([storagePath]);
-    }
-    // Case 2: Base64 file sent directly (small files, backward compat)
-    else if (file && file.base64) {
-      const mimeType = file.type || "application/pdf";
-      course = await callAI(LOVABLE_API_KEY, [
-        {
-          type: "text",
-          text: `Voici un document "${file.name}" à transformer en cours structuré. Analyse tout le contenu du document et structure-le en chapitres, sections avec contenu HTML riche et quiz.`,
-        },
-        {
-          type: "image_url",
-          image_url: { url: `data:${mimeType};base64,${file.base64}` },
-        },
-      ]);
-    }
-    // Case 3: Text content (with chunking for large text)
-    else if (content) {
-      course = await processChunkedText(LOVABLE_API_KEY, content);
+    if (!Deno.env.get("LOVABLE_API_KEY")) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    if (!course) {
-      throw new Error("No structured output from AI");
-    }
+    const supabase = getSupabase();
 
-    return new Response(JSON.stringify({ course }), {
+    // Create a job record
+    const { data: job, error: jobError } = await supabase
+      .from("processing_jobs")
+      .insert({ status: "processing", progress: 0 })
+      .select()
+      .single();
+
+    if (jobError || !job) throw new Error("Failed to create processing job");
+
+    // Start background processing (non-blocking)
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    EdgeRuntime.waitUntil(processInBackground(job.id, body));
+
+    // Return immediately with job ID
+    return new Response(JSON.stringify({ job_id: job.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e) {
     console.error("process-course error:", e);
     const msg = e instanceof Error ? e.message : "Erreur inconnue";
-    if (msg === "RATE_LIMIT") {
-      return new Response(JSON.stringify({ error: "Trop de requêtes. Réessayez dans quelques instants." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (msg === "NO_CREDITS") {
-      return new Response(JSON.stringify({ error: "Crédits IA insuffisants." }), {
-        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     return new Response(
       JSON.stringify({ error: msg }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
