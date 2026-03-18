@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, FileText, Sparkles, X, AlertCircle, CheckCircle, Brain, Loader2 } from "lucide-react";
+import { Upload, FileText, X, AlertCircle, CheckCircle, Brain, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COURSE_COLORS, COURSE_ICONS, CustomCourseData } from "@/hooks/useCustomCourses";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,11 +32,12 @@ const ACCEPTED_TYPES = {
 };
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_POLL_ATTEMPTS = 45;
 
 export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProps) {
   const [step, setStep] = useState<Step>("upload");
   const [rawContent, setRawContent] = useState("");
-  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; base64?: string; rawFile?: File } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; rawFile: File } | null>(null);
   const [parsedCourse, setParsedCourse] = useState<ParsedCourse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [icon, setIcon] = useState(COURSE_ICONS[0]);
@@ -74,25 +75,10 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
       reader.onerror = () => setError("Erreur lors de la lecture du fichier");
       reader.readAsText(file);
     } else {
-      // For large files, keep the raw File object for storage upload
-      const STORAGE_THRESHOLD = 4 * 1024 * 1024; // 4MB
-      if (file.size > STORAGE_THRESHOLD) {
-        setAttachedFile({ name: file.name, type: file.type, rawFile: file });
-        setRawContent("");
-      } else {
-        // Small files: base64 inline (backward compat)
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64 = (event.target?.result as string).split(",")[1];
-          setAttachedFile({ name: file.name, type: file.type, base64 });
-          setRawContent("");
-        };
-        reader.onerror = () => setError("Erreur lors de la lecture du fichier");
-        reader.readAsDataURL(file);
-      }
+      setAttachedFile({ name: file.name, type: file.type, rawFile: file });
+      setRawContent("");
     }
 
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -118,28 +104,24 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
     }, 3000);
 
     try {
-      const body: any = {};
-      
+      const body: Record<string, string> = {};
+
       if (attachedFile?.rawFile) {
-        setProcessingMessage("Téléversement du fichier...");
-        const storagePath = `uploads/${Date.now()}_${attachedFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("course-files")
-          .upload(storagePath, attachedFile.rawFile, {
-            contentType: attachedFile.type,
-          });
-        if (uploadError) throw new Error("Erreur lors du téléversement: " + uploadError.message);
-        
-        body.storagePath = storagePath;
-        body.fileType = attachedFile.type;
+        setProcessingMessage("Extraction du texte du document...");
+        const { extractTextFromDocument, optimizeExtractedTextForAI } = await import("@/lib/documentExtraction");
+        const extractedText = await extractTextFromDocument(attachedFile.rawFile);
+
+        if (!extractedText || extractedText.length < 200) {
+          throw new Error("Impossible d'extraire assez de texte. Vérifiez que le document n'est pas scanné ou protégé.");
+        }
+
         body.fileName = attachedFile.name;
-      } else if (attachedFile?.base64) {
-        body.file = { name: attachedFile.name, type: attachedFile.type, base64: attachedFile.base64 };
+        body.content = `Document source : ${attachedFile.name}\n\n${optimizeExtractedTextForAI(extractedText)}`;
       } else {
-        body.content = rawContent;
+        body.content = rawContent.trim();
       }
 
-      setProcessingMessage("Envoi au serveur...");
+      setProcessingMessage("Analyse du contenu...");
       const { data, error: fnError } = await supabase.functions.invoke("process-course", {
         body,
       });
@@ -147,13 +129,23 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
       if (fnError) throw new Error(fnError.message || "Erreur lors du traitement");
       if (data?.error) throw new Error(data.error);
 
-      // We now get a job_id back - poll for completion
+      if (data?.result) {
+        clearInterval(interval);
+        setParsedCourse(data.result);
+        setStep("preview");
+        return;
+      }
+
       const jobId = data?.job_id;
-      if (!jobId) throw new Error("Aucun identifiant de traitement retourné");
+      if (!jobId) throw new Error("Aucun résultat retourné par le serveur");
 
       setProcessingMessage("L'IA analyse votre contenu...");
 
-      const pollForResult = async (): Promise<any> => {
+      const pollForResult = async (attempt = 0): Promise<any> => {
+        if (attempt >= MAX_POLL_ATTEMPTS) {
+          throw new Error("Le traitement prend trop de temps. Réessayez avec un document plus ciblé.");
+        }
+
         const { data: job, error: pollError } = await supabase
           .from("processing_jobs")
           .select("status, progress, result, error")
@@ -161,17 +153,15 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
           .single();
 
         if (pollError) throw new Error("Erreur lors du suivi du traitement");
-
         if (job.status === "complete") return job.result;
         if (job.status === "failed") throw new Error(job.error || "Le traitement a échoué");
 
-        // Update progress message
         if (job.progress > 0) {
           setProcessingMessage(`Traitement en cours... ${job.progress}%`);
         }
 
         await new Promise((r) => setTimeout(r, 3000));
-        return pollForResult();
+        return pollForResult(attempt + 1);
       };
 
       const course = await pollForResult();
