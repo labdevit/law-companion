@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const DIRECT_REQUEST_MAX_CHARS = 35000;
+const DIRECT_REQUEST_MAX_CHARS = 45000;
 const DIRECT_MODEL_MAX_CHARS = 45000;
 const CHUNK_TARGET_CHARS = 18000;
 const CHUNK_HARD_MAX_CHARS = 24000;
