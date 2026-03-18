@@ -51,7 +51,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      setError("Le fichier est trop volumineux (max 15 Mo)");
+      setError("Le fichier est trop volumineux (max 50 Mo)");
       return;
     }
 
@@ -74,15 +74,22 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
       reader.onerror = () => setError("Erreur lors de la lecture du fichier");
       reader.readAsText(file);
     } else {
-      // PDF or DOCX → base64
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = (event.target?.result as string).split(",")[1];
-        setAttachedFile({ name: file.name, type: file.type, base64 });
+      // For large files, keep the raw File object for storage upload
+      const STORAGE_THRESHOLD = 4 * 1024 * 1024; // 4MB
+      if (file.size > STORAGE_THRESHOLD) {
+        setAttachedFile({ name: file.name, type: file.type, rawFile: file });
         setRawContent("");
-      };
-      reader.onerror = () => setError("Erreur lors de la lecture du fichier");
-      reader.readAsDataURL(file);
+      } else {
+        // Small files: base64 inline (backward compat)
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = (event.target?.result as string).split(",")[1];
+          setAttachedFile({ name: file.name, type: file.type, base64 });
+          setRawContent("");
+        };
+        reader.onerror = () => setError("Erreur lors de la lecture du fichier");
+        reader.readAsDataURL(file);
+      }
     }
 
     // Reset input
