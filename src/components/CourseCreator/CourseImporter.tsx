@@ -121,7 +121,6 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
       const body: any = {};
       
       if (attachedFile?.rawFile) {
-        // Large file: upload to storage first
         setProcessingMessage("Téléversement du fichier...");
         const storagePath = `uploads/${Date.now()}_${attachedFile.name}`;
         const { error: uploadError } = await supabase.storage
@@ -140,17 +139,47 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
         body.content = rawContent;
       }
 
+      setProcessingMessage("Envoi au serveur...");
       const { data, error: fnError } = await supabase.functions.invoke("process-course", {
         body,
       });
 
-      clearInterval(interval);
-
       if (fnError) throw new Error(fnError.message || "Erreur lors du traitement");
       if (data?.error) throw new Error(data.error);
-      if (!data?.course) throw new Error("Aucun résultat retourné par l'IA");
 
-      setParsedCourse(data.course);
+      // We now get a job_id back - poll for completion
+      const jobId = data?.job_id;
+      if (!jobId) throw new Error("Aucun identifiant de traitement retourné");
+
+      setProcessingMessage("L'IA analyse votre contenu...");
+
+      const pollForResult = async (): Promise<any> => {
+        const { data: job, error: pollError } = await supabase
+          .from("processing_jobs")
+          .select("status, progress, result, error")
+          .eq("id", jobId)
+          .single();
+
+        if (pollError) throw new Error("Erreur lors du suivi du traitement");
+
+        if (job.status === "complete") return job.result;
+        if (job.status === "failed") throw new Error(job.error || "Le traitement a échoué");
+
+        // Update progress message
+        if (job.progress > 0) {
+          setProcessingMessage(`Traitement en cours... ${job.progress}%`);
+        }
+
+        await new Promise((r) => setTimeout(r, 3000));
+        return pollForResult();
+      };
+
+      const course = await pollForResult();
+      clearInterval(interval);
+
+      if (!course) throw new Error("Aucun résultat retourné par l'IA");
+
+      setParsedCourse(course);
       setStep("preview");
     } catch (err) {
       clearInterval(interval);
