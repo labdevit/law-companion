@@ -157,15 +157,31 @@ Réponds UNIQUEMENT avec l'appel de fonction, sans texte supplémentaire.`;
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    let course: any = null;
 
-    if (!toolCall?.function?.arguments) {
-      throw new Error("No structured output from AI");
+    // Try tool_calls first
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      course = typeof toolCall.function.arguments === "string"
+        ? JSON.parse(toolCall.function.arguments)
+        : toolCall.function.arguments;
     }
 
-    const course = typeof toolCall.function.arguments === "string"
-      ? JSON.parse(toolCall.function.arguments)
-      : toolCall.function.arguments;
+    // Fallback: extract JSON from message content
+    if (!course) {
+      const content = data.choices?.[0]?.message?.content || "";
+      console.log("No tool_call, trying content fallback. Content length:", content.length);
+      
+      const extracted = extractJsonFromText(content);
+      if (extracted && extracted.title && extracted.chapters) {
+        course = extracted;
+      }
+    }
+
+    if (!course) {
+      console.error("AI response structure:", JSON.stringify(data.choices?.[0]?.message, null, 2).substring(0, 500));
+      throw new Error("No structured output from AI");
+    }
 
     return new Response(JSON.stringify({ course }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
