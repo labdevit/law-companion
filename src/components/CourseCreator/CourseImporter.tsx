@@ -119,8 +119,23 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
 
     try {
       const body: any = {};
-      if (attachedFile) {
-        body.file = attachedFile;
+      
+      if (attachedFile?.rawFile) {
+        // Large file: upload to storage first
+        setProcessingMessage("Téléversement du fichier...");
+        const storagePath = `uploads/${Date.now()}_${attachedFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("course-files")
+          .upload(storagePath, attachedFile.rawFile, {
+            contentType: attachedFile.type,
+          });
+        if (uploadError) throw new Error("Erreur lors du téléversement: " + uploadError.message);
+        
+        body.storagePath = storagePath;
+        body.fileType = attachedFile.type;
+        body.fileName = attachedFile.name;
+      } else if (attachedFile?.base64) {
+        body.file = { name: attachedFile.name, type: attachedFile.type, base64: attachedFile.base64 };
       } else {
         body.content = rawContent;
       }
