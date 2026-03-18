@@ -5,8 +5,8 @@ import mammoth from "mammoth";
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const PAGE_SEPARATOR = "\n\n--- Saut de page ---\n\n";
-const DEFAULT_MAX_CHARS = 55000;
-const MAX_SEGMENTS_TO_KEEP = 18;
+const DEFAULT_MAX_CHARS = 30000;
+const MAX_SEGMENTS_TO_KEEP = 12;
 
 function normalizeWhitespace(text: string) {
   return text
