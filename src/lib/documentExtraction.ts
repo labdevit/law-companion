@@ -5,14 +5,108 @@ import mammoth from "mammoth";
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const PAGE_SEPARATOR = "\n\n--- Saut de page ---\n\n";
-const DEFAULT_MAX_CHARS = 180000;
+const DEFAULT_MAX_CHARS = 55000;
+const MAX_SEGMENTS_TO_KEEP = 18;
 
 function normalizeWhitespace(text: string) {
   return text
     .replace(/\u0000/g, "")
+    .replace(/\r\n/g, "\n")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function truncateMiddle(text: string, maxChars: number) {
+  if (text.length <= maxChars) return text;
+  const head = text.slice(0, Math.floor(maxChars * 0.55));
+  const tail = text.slice(-Math.floor(maxChars * 0.3));
+  return normalizeWhitespace(`${head}\n\n[... contenu intermédiaire condensé ...]\n\n${tail}`);
+}
+
+function splitIntoSentences(text: string) {
+  return normalizeWhitespace(text)
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function pickEvenlySpacedIndices(length: number, maxItems: number) {
+  if (length <= maxItems) return Array.from({ length }, (_, index) => index);
+
+  const selected = new Set<number>([0, 1, length - 2, length - 1]);
+  const remaining = Math.max(maxItems - selected.size, 0);
+
+  for (let step = 1; step <= remaining; step += 1) {
+    const ratio = step / (remaining + 1);
+    selected.add(Math.min(length - 1, Math.max(0, Math.floor(ratio * (length - 1)))));
+  }
+
+  return [...selected].sort((a, b) => a - b).slice(0, maxItems);
+}
+
+function compressSegment(segment: string, budget: number) {
+  const cleaned = normalizeWhitespace(segment);
+  if (cleaned.length <= budget) return cleaned;
+
+  const lines = segment
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const headings = lines.filter((line) =>
+    /^(page\s+\d+|chapitre\s+\d+|section\s+\d+|partie\s+\d+|titre\s*:|[ivxlcdm]+\.|\d+\.)/i.test(line)
+  );
+
+  const bullets = lines.filter((line) => /^([-*•]|\d+\.)\s+/.test(line));
+  const sentences = splitIntoSentences(cleaned);
+  const middleIndex = Math.floor(sentences.length / 2);
+  const sampledSentences = [
+    ...sentences.slice(0, 3),
+    ...sentences.slice(Math.max(middleIndex - 1, 0), Math.max(middleIndex + 1, 0)),
+    ...sentences.slice(-2),
+  ];
+
+  const parts = [...headings.slice(0, 4), ...bullets.slice(0, 6), ...sampledSentences]
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const uniqueParts: string[] = [];
+  const seen = new Set<string>();
+
+  for (const part of parts) {
+    const key = part.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueParts.push(part);
+  }
+
+  return truncateMiddle(uniqueParts.join("\n"), budget);
+}
+
+function toPseudoSegments(text: string) {
+  const paragraphs = normalizeWhitespace(text)
+    .split(/\n\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!paragraphs.length) return [normalizeWhitespace(text)];
+
+  const segments: string[] = [];
+  let current = "";
+
+  for (const paragraph of paragraphs) {
+    const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
+    if (candidate.length > 3500 && current) {
+      segments.push(current);
+      current = paragraph;
+      continue;
+    }
+    current = candidate;
+  }
+
+  if (current) segments.push(current);
+  return segments;
 }
 
 export async function extractTextFromDocument(file: File): Promise<string> {
@@ -31,41 +125,20 @@ export function optimizeExtractedTextForAI(text: string, maxChars = DEFAULT_MAX_
   const normalized = normalizeWhitespace(text);
   if (normalized.length <= maxChars) return normalized;
 
-  const segments = normalized.split(PAGE_SEPARATOR).filter(Boolean);
-  if (segments.length <= 3) {
-    const head = normalized.slice(0, Math.floor(maxChars * 0.45));
-    const middleStart = Math.max(Math.floor(normalized.length / 2) - Math.floor(maxChars * 0.1), 0);
-    const middle = normalized.slice(middleStart, middleStart + Math.floor(maxChars * 0.2));
-    const tail = normalized.slice(-Math.floor(maxChars * 0.35));
-    return normalizeWhitespace(`${head}\n\n[... contenu intermédiaire condensé ...]\n\n${middle}\n\n[... fin du document ...]\n\n${tail}`);
-  }
+  const rawSegments = normalized.includes(PAGE_SEPARATOR)
+    ? normalized.split(PAGE_SEPARATOR).filter(Boolean)
+    : toPseudoSegments(normalized);
 
-  const selected = new Set<number>();
-  const orderedSegments: string[] = [];
-  const targetIndices = new Set<number>([
-    0,
-    1,
-    Math.max(segments.length - 2, 0),
-    Math.max(segments.length - 1, 0),
-    Math.floor(segments.length * 0.25),
-    Math.floor(segments.length * 0.5),
-    Math.floor(segments.length * 0.75),
-  ]);
+  const indices = pickEvenlySpacedIndices(rawSegments.length, MAX_SEGMENTS_TO_KEEP);
+  const selectedSegments = indices.map((index) => rawSegments[index]);
+  const perSegmentBudget = Math.max(1400, Math.floor((maxChars - 2000) / Math.max(selectedSegments.length, 1)));
 
-  const pushIndex = (index: number) => {
-    if (index < 0 || index >= segments.length || selected.has(index)) return;
-    selected.add(index);
-    orderedSegments.push(segments[index]);
-  };
+  const compressed = selectedSegments.map((segment, position) => {
+    const sourceIndex = indices[position] + 1;
+    return `Extrait ${sourceIndex}\n${compressSegment(segment, perSegmentBudget)}`;
+  });
 
-  [...targetIndices].sort((a, b) => a - b).forEach(pushIndex);
-
-  let joined = orderedSegments.join(PAGE_SEPARATOR);
-  if (joined.length <= maxChars) return normalizeWhitespace(joined);
-
-  const head = joined.slice(0, Math.floor(maxChars * 0.5));
-  const tail = joined.slice(-Math.floor(maxChars * 0.5));
-  return normalizeWhitespace(`${head}\n\n[... extrait condensé de plusieurs pages ...]\n\n${tail}`);
+  return truncateMiddle(compressed.join(PAGE_SEPARATOR), maxChars);
 }
 
 async function extractTextFromPdf(file: File): Promise<string> {
