@@ -14,6 +14,7 @@ import { ProgressToast } from "@/components/ProgressToast";
 import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
 import { CourseQA } from "@/components/CourseQA";
 import { AppNav } from "@/components/AppNav";
+import { CourseSearch } from "@/components/CourseSearch";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
@@ -64,6 +65,19 @@ const Index = () => {
   const stats = getStats(allCourseSections.length);
   const { currentStreak, dailyGoal, todayCompleted, allAchievements, recordStudy } = useStreak(stats.sectionsCompleted);
   const [toastType, setToastType] = useState<ToastType>(null);
+
+  const handleSearchNavigate = useCallback((courseId: string, sectionId?: string) => {
+    setActiveCourseId(courseId);
+    if (sectionId) {
+      setActiveSectionId(sectionId);
+    } else {
+      const course = allCourses.find((c) => c.id === courseId);
+      if (course && course.chapters[0]?.sections[0]) {
+        setActiveSectionId(course.chapters[0].sections[0].id);
+      }
+    }
+    setSidebarOpen(false);
+  }, [allCourses]);
 
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
@@ -227,6 +241,11 @@ const Index = () => {
               </div>
             </div>
           )}
+
+          {/* Search */}
+          <div className="mb-6 animate-fade-in" style={{ animationDelay: "90ms" }}>
+            <CourseSearch courses={allCourses} onNavigate={handleSearchNavigate} />
+          </div>
 
           {/* Course grid */}
           <section className="animate-fade-in" style={{ animationDelay: "100ms" }}>
