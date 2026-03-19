@@ -2337,7 +2337,573 @@ export const COURSES: Course[] = [
         ]
       }
     ]
-  }
+  },
+  // ═══════════════════════════════════════════════════════════════════
+  // GOUVERNANCE ET FRAUDE
+  // ═══════════════════════════════════════════════════════════════════
+  {
+    id: "gouvernance",
+    title: "Gouvernance & Fraude",
+    icon: "🏛️",
+    color: "from-emerald-500 to-teal-600",
+    chapters: [
+      {
+        id: "gouvernance_ch1",
+        title: "Les origines de la gouvernance",
+        sections: [
+          {
+            id: "gouvernance_ch1_s1",
+            title: "Origine et évolution du terme",
+            content: `
+              <p>Le terme <span class="hl">gouvernance</span> dérive du grec <span class="hlg">"kubernan"</span> signifiant piloter un navire, évoluant en latin vers <span class="hlg">"gubernare"</span> pour désigner le gouvernement des hommes.</p>
+              <p>Utilisation en français au <span class="hl">XIIIe siècle</span>, puis abandon au profit de "gouvernement" jusqu'aux années 1980.</p>
+              <h4>Les étapes de la gouvernance</h4>
+              <ul>
+                <li><span class="hl">L'économie fermée</span> : auto-suffisance locale, gestion directe sans besoin de gouvernance.</li>
+                <li><span class="hl">L'économie artisanale</span> : développement urbain sans gouvernance formalisée.</li>
+                <li><span class="hl">L'économie de marché</span> : expansion du commerce nécessite des règles et institutions, amorçant la gouvernance.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "De quel mot grec dérive le terme 'gouvernance' ?",
+                choices: ["Kubernan", "Demokratia", "Politeia", "Archein"],
+                correctAnswer: 0,
+                explanation: "Le terme gouvernance dérive du grec 'kubernan' signifiant piloter un navire."
+              },
+              {
+                type: "tf",
+                question: "Le terme 'gouvernance' a été utilisé sans interruption en français depuis le XIIIe siècle.",
+                correctAnswer: false,
+                explanation: "Le terme a été abandonné au profit de 'gouvernement' jusqu'aux années 1980."
+              },
+              {
+                type: "short",
+                question: "Citez les trois étapes historiques de la gouvernance.",
+                correctAnswer: ["économie fermée", "économie artisanale", "économie de marché"],
+                explanation: "Les trois étapes sont : l'économie fermée, l'économie artisanale et l'économie de marché."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch1_s2",
+            title: "L'économie industrielle et la théorie de l'agence",
+            content: `
+              <h4>Le pouvoir des managers</h4>
+              <p>Les <span class="hl">révolutions technologiques</span> transforment le capitalisme avec un rôle croissant des <span class="hl">managers</span>. Les dérives du pouvoir managérial dans les années 1980 entraînent des réformes de gouvernance.</p>
+              <h4>Restauration du pouvoir des actionnaires</h4>
+              <p>Les réactions aux scandales comme <span class="hlg">Enron</span> et <span class="hlg">WorldCom</span> renforcent la gouvernance. Implication des <span class="hl">actionnaires</span> pour contrôler les décisions stratégiques et les rémunérations.</p>
+              <h4>La théorie de l'agence</h4>
+              <p>La <span class="hl">théorie de l'agence</span> souligne les <span class="hlg">conflits d'intérêts</span> entre actionnaires et dirigeants, justifiant la gouvernance comme mécanisme de contrôle.</p>
+              <h4>Extension de la gouvernance</h4>
+              <p>Initialement axée sur le contrôle financier, elle intègre maintenant des aspects comme le <span class="hl">développement durable</span> et l'<span class="hl">éthique</span>.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quels scandales ont renforcé la gouvernance d'entreprise ?",
+                choices: ["Enron et WorldCom", "Lehman Brothers et AIG", "Madoff et Theranos", "Parmalat et Vivendi"],
+                correctAnswer: 0,
+                explanation: "Les scandales Enron et WorldCom ont conduit à des réformes majeures de gouvernance."
+              },
+              {
+                type: "tf",
+                question: "La théorie de l'agence met en évidence les conflits d'intérêts entre actionnaires et dirigeants.",
+                correctAnswer: true,
+                explanation: "La théorie de l'agence souligne ces conflits et justifie la gouvernance comme mécanisme de contrôle."
+              },
+              {
+                type: "short",
+                question: "Quels aspects la gouvernance intègre-t-elle au-delà du contrôle financier ?",
+                correctAnswer: ["développement durable", "éthique"],
+                explanation: "La gouvernance s'étend au développement durable et à l'éthique."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch2",
+        title: "La définition de la gouvernance",
+        sections: [
+          {
+            id: "gouvernance_ch2_s1",
+            title: "Objectifs et approches",
+            content: `
+              <p>La <span class="hl">gouvernance d'entreprise</span> vise à encadrer les relations entre <span class="hl">dirigeants</span> et <span class="hl">actionnaires</span>.</p>
+              <p>Ses objectifs évoluent : initialement axée sur la limitation des risques et le contrôle du management, elle inclut désormais la <span class="hlg">création de valeur</span> pour toutes les parties prenantes.</p>
+              <h4>Deux approches principales</h4>
+              <ul>
+                <li><span class="hl">Valeur actionnariale</span> : maximisation du cours boursier.</li>
+                <li><span class="hl">Valeur partenariale</span> : création de richesse pour toutes les parties prenantes.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quelle approche vise la maximisation du cours boursier ?",
+                choices: ["La valeur actionnariale", "La valeur partenariale", "La valeur sociale", "La valeur intrinsèque"],
+                correctAnswer: 0,
+                explanation: "La valeur actionnariale se concentre sur la maximisation du cours boursier."
+              },
+              {
+                type: "tf",
+                question: "La valeur partenariale vise uniquement les intérêts des actionnaires.",
+                correctAnswer: false,
+                explanation: "La valeur partenariale crée de la richesse pour toutes les parties prenantes, pas seulement les actionnaires."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch2_s2",
+            title: "Loi Sarbanes-Oxley et Rapport Breeden",
+            content: `
+              <h4>Loi Sarbanes-Oxley</h4>
+              <p>Instaurée après les scandales financiers de 2001-2002 (<span class="hlg">Enron</span>, <span class="hlg">WorldCom</span>), cette loi vise à restaurer la confiance des investisseurs en renforçant la <span class="hl">fiabilité des informations financières</span>, en encadrant le rôle des auditeurs et des conseils, et en imposant des règles strictes de gouvernance.</p>
+              <p>Elle prévoit des <span class="hl">sanctions sévères</span> en cas de fraude.</p>
+              <h4>Propositions du Rapport Breeden</h4>
+              <ul>
+                <li>Interdiction du cumul des fonctions de <span class="hl">CEO et Président du Conseil</span>.</li>
+                <li>Exigences de compétences spécifiques pour les administrateurs.</li>
+                <li>Limites sur le nombre de mandats d'administrateurs.</li>
+                <li>Obligations de réunions et de visites des installations.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quand la loi Sarbanes-Oxley a-t-elle été instaurée ?",
+                choices: ["Après les scandales de 2001-2002", "Après la crise de 2008", "En 1990", "En 2010"],
+                correctAnswer: 0,
+                explanation: "La loi a été instaurée après les scandales Enron et WorldCom de 2001-2002."
+              },
+              {
+                type: "tf",
+                question: "Le rapport Breeden recommande le cumul des fonctions de CEO et Président du Conseil.",
+                correctAnswer: false,
+                explanation: "Le rapport Breeden propose au contraire l'interdiction de ce cumul."
+              },
+              {
+                type: "short",
+                question: "Quel est l'objectif principal de la loi Sarbanes-Oxley ?",
+                correctAnswer: ["restaurer la confiance", "fiabilité", "informations financières"],
+                explanation: "La loi vise à restaurer la confiance des investisseurs en renforçant la fiabilité des informations financières."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch3",
+        title: "Les différentes formes de gouvernance",
+        sections: [
+          {
+            id: "gouvernance_ch3_s1",
+            title: "Forme juridique et taille de l'entreprise",
+            content: `
+              <h4>Forme juridique</h4>
+              <p>Le choix de la <span class="hl">forme juridique</span> (<span class="hlg">SA</span>, <span class="hlg">SAS</span>, <span class="hlg">SARL</span>, société en commandite par actions) influence fortement la gouvernance, dictant les règles et obligations spécifiques.</p>
+              <h4>Taille de l'entreprise</h4>
+              <p>Les entreprises sont catégorisées en :</p>
+              <ul>
+                <li><span class="hl">Micro-entreprises</span></li>
+                <li><span class="hl">PME</span></li>
+                <li><span class="hl">ETI</span> (Entreprises de Taille Intermédiaire)</li>
+                <li><span class="hl">Grandes entreprises</span></li>
+              </ul>
+              <p>Chacune a des besoins spécifiques en matière de gouvernance, en fonction de sa taille, complexité et capacité à produire des informations de qualité.</p>
+              <h4>Composition de l'actionnariat</h4>
+              <p>La nature de l'<span class="hl">actionnariat</span> (coté en bourse, familial, institutionnel) influence la gouvernance en déterminant les intérêts en jeu et les mécanismes de contrôle.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quelle forme juridique n'est PAS mentionnée dans le cours ?",
+                choices: ["SCI", "SA", "SAS", "SARL"],
+                correctAnswer: 0,
+                explanation: "Les formes mentionnées sont SA, SAS, SARL et la société en commandite par actions."
+              },
+              {
+                type: "short",
+                question: "Quelles sont les catégories d'entreprises par taille ?",
+                correctAnswer: ["micro-entreprises", "PME", "ETI", "grandes entreprises"],
+                explanation: "Les entreprises se catégorisent en micro-entreprises, PME, ETI et grandes entreprises."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch3_s2",
+            title: "Gouvernance par type d'organisation",
+            content: `
+              <h4>Start-ups</h4>
+              <p>Les <span class="hl">start-ups</span> nécessitent une gouvernance adaptée à leur stade précoce. Des <span class="hlg">comités stratégiques</span> ou <span class="hlg">advisory boards</span> peuvent être préférés aux structures formelles.</p>
+              <h4>PME</h4>
+              <p>La gouvernance peut apporter des bénéfices significatifs aux <span class="hl">PME</span> : conseil d'administration efficace, expertise technique, renforcement de la crédibilité.</p>
+              <h4>ETI</h4>
+              <p>Les <span class="hl">ETI</span> sont bien placées pour bénéficier d'une gouvernance structurée : professionnalisation, expansion du réseau, préparation d'opérations financières complexes.</p>
+              <h4>Grands groupes et sociétés cotées</h4>
+              <p>La gouvernance des <span class="hl">sociétés cotées</span> est soumise à des règles strictes et des recommandations de codes de gouvernance pour assurer <span class="hlg">transparence</span>, <span class="hlg">responsabilité</span> et conformité.</p>
+              <h4>Adaptabilité</h4>
+              <p>Une approche <span class="hl">progressive et flexible</span> est préférable, favorisant les comités stratégiques avant de formaliser un conseil d'administration complet.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quel organe est recommandé pour les start-ups plutôt qu'un conseil d'administration ?",
+                choices: ["Un advisory board", "Un comité d'audit", "Un tribunal arbitral", "Un syndicat"],
+                correctAnswer: 0,
+                explanation: "Les comités stratégiques ou advisory boards sont préférés pour les start-ups."
+              },
+              {
+                type: "tf",
+                question: "La gouvernance des sociétés cotées est soumise à des règles strictes.",
+                correctAnswer: true,
+                explanation: "Les sociétés cotées sont réglementées de manière stricte pour assurer transparence et conformité."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch4",
+        title: "Les missions prioritaires de la gouvernance",
+        sections: [
+          {
+            id: "gouvernance_ch4_s1",
+            title: "Stratégie et arrêté des comptes",
+            content: `
+              <h4>Définition et suivi de la stratégie</h4>
+              <ul>
+                <li><span class="hl">Objectifs</span> : Assurer que le conseil d'administration guide et surveille la stratégie pour créer de la valeur.</li>
+                <li><span class="hl">Points clés</span> : Clarté des attentes des actionnaires, définition des objectifs stratégiques, analyse des marchés et concurrents, évaluation du risque.</li>
+                <li><span class="hl">Signaux d'alerte</span> : Absence de débat, intuition prédominante, manque ou excès d'information, inadéquation des ressources.</li>
+              </ul>
+              <h4>L'arrêté des comptes</h4>
+              <ul>
+                <li><span class="hl">Objectifs</span> : Garantir l'exactitude et la transparence des comptes sous la supervision du conseil.</li>
+                <li><span class="hl">Points clés</span> : Fiabilité des chiffres, indicateurs financiers critiques, relation résultats/rémunération des dirigeants.</li>
+                <li><span class="hl">Signaux d'alerte</span> : Insuffisance de temps sur les aspects financiers, relation tendue avec les commissaires aux comptes.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quel est un signal d'alerte dans le suivi de la stratégie ?",
+                choices: ["L'absence de débat au conseil", "Un excès de réunions", "Trop d'administrateurs", "Des dividendes élevés"],
+                correctAnswer: 0,
+                explanation: "L'absence de débat est un signal d'alerte majeur dans le suivi stratégique."
+              },
+              {
+                type: "tf",
+                question: "L'arrêté des comptes est une mission secondaire de la gouvernance.",
+                correctAnswer: false,
+                explanation: "L'arrêté des comptes est une mission prioritaire de la gouvernance."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch4_s2",
+            title: "Gestion des dirigeants et des risques",
+            content: `
+              <h4>La gestion des dirigeants</h4>
+              <ul>
+                <li><span class="hl">Objectifs</span> : Nommer, évaluer et rémunérer les dirigeants en alignement avec les intérêts de l'entreprise.</li>
+                <li><span class="hl">Points clés</span> : Sélection rigoureuse, évaluation sur critères objectifs, transparence de la rémunération.</li>
+                <li><span class="hl">Signaux d'alerte</span> : Processus d'évaluation peu clair, rémunération liée au court terme, manque de transparence.</li>
+              </ul>
+              <h4>La gestion des risques</h4>
+              <ul>
+                <li><span class="hl">Objectifs</span> : Approche proactive pour identifier, évaluer et gérer les <span class="hlg">risques majeurs</span>.</li>
+                <li><span class="hl">Points clés</span> : Niveau de risque acceptable, responsabilités claires, processus formalisé, contrôle interne.</li>
+                <li><span class="hl">Signaux d'alerte</span> : Absence d'évaluation des risques, faiblesse du contrôle interne, délégation excessive.</li>
+                <li><span class="hl">Recommandations</span> : Intégrer la gestion des risques dans la stratégie, <span class="hlg">cartographier les risques</span>, maintenir la conformité.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quelle recommandation est faite pour la gestion des risques ?",
+                choices: ["Cartographier les risques", "Ignorer les risques mineurs", "Externaliser tout le contrôle", "Réduire le conseil d'administration"],
+                correctAnswer: 0,
+                explanation: "La cartographie des risques est une recommandation clé pour la gestion des risques."
+              },
+              {
+                type: "short",
+                question: "Quels sont les objectifs de la gestion des dirigeants ?",
+                correctAnswer: ["nommer", "évaluer", "rémunérer"],
+                explanation: "Les objectifs sont : nommer, évaluer et rémunérer les dirigeants."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch5",
+        title: "Les missions complémentaires",
+        sections: [
+          {
+            id: "gouvernance_ch5_s1",
+            title: "Performance économique et actif humain",
+            content: `
+              <h4>Analyse de la performance économique</h4>
+              <ul>
+                <li>Utilisation d'<span class="hl">indicateurs financiers</span> et d'un <span class="hlg">tableau de bord</span> adapté.</li>
+                <li>Intégration de la dimension financière dans les décisions stratégiques.</li>
+                <li><span class="hl">Signaux d'alerte</span> : Absence de documents synthétiques, indicateurs clés flous.</li>
+              </ul>
+              <h4>Gestion de l'actif humain</h4>
+              <ul>
+                <li>Importance des <span class="hl">ressources humaines</span> dans la performance.</li>
+                <li>Projet d'entreprise clair, équipe de direction compétente, gestion de la <span class="hlg">succession</span> et fidélisation des talents.</li>
+                <li><span class="hl">Signaux d'alerte</span> : Absence de fonction RH, indicateurs sociaux négatifs, système de rémunération inadapté.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "tf",
+                question: "Un tableau de bord adapté est recommandé pour l'analyse de la performance économique.",
+                correctAnswer: true,
+                explanation: "Le tableau de bord est un outil clé pour le suivi de la performance."
+              },
+              {
+                type: "mcq",
+                question: "Quel est un signal d'alerte dans la gestion de l'actif humain ?",
+                choices: ["L'absence de fonction RH", "Un excès de formation", "Trop de recrutements", "Des salaires trop élevés"],
+                correctAnswer: 0,
+                explanation: "L'absence de fonction RH est un signal d'alerte majeur."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch5_s2",
+            title: "RSE, communication et appui aux dirigeants",
+            content: `
+              <h4>Responsabilité sociétale des entreprises (RSE)</h4>
+              <ul>
+                <li>Intégrer des pratiques responsables : dimension <span class="hl">économique</span>, <span class="hl">sociale</span> et <span class="hl">environnementale</span>.</li>
+                <li>Mise en place d'un <span class="hlg">reporting intégré</span>.</li>
+                <li>La RSE comme source de <span class="hlg">création de valeur</span>.</li>
+              </ul>
+              <h4>Communication avec les parties prenantes</h4>
+              <ul>
+                <li>Assurer une communication <span class="hl">transparente</span> et constructive.</li>
+                <li>Qualité de l'information transmise, consultation préalable sur les communications stratégiques.</li>
+              </ul>
+              <h4>Appui aux dirigeants</h4>
+              <ul>
+                <li>Fournir un soutien au dirigeant pour rompre avec sa <span class="hlg">solitude décisionnelle</span>.</li>
+                <li>Instaurer un climat de confiance, développer l'anticipation.</li>
+                <li>Pratiquer le <span class="hl">benchmarking</span> pour élargir les perspectives.</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quelles sont les trois dimensions de la RSE ?",
+                choices: ["Économique, sociale et environnementale", "Financière, juridique et commerciale", "Technique, humaine et logistique", "Locale, nationale et internationale"],
+                correctAnswer: 0,
+                explanation: "La RSE couvre les dimensions économique, sociale et environnementale."
+              },
+              {
+                type: "tf",
+                question: "Le benchmarking est recommandé pour l'appui aux dirigeants.",
+                correctAnswer: true,
+                explanation: "Le benchmarking permet d'élargir les perspectives du dirigeant."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch6",
+        title: "Les situations particulières",
+        sections: [
+          {
+            id: "gouvernance_ch6_s1",
+            title: "L'entreprise familiale et la succession",
+            content: `
+              <h4>L'entreprise familiale</h4>
+              <p>Les <span class="hl">entreprises familiales</span> représentent une part significative de l'économie, caractérisées par la détention majoritaire du capital par des membres de la même famille.</p>
+              <p>Elles se distinguent des <span class="hlg">entreprises personnelles</span> (contrôlées par leurs fondateurs) et des <span class="hlg">entreprises patrimoniales</span> (sans lien familial entre dirigeants).</p>
+              <h4>Transmission et succession</h4>
+              <p>La <span class="hl">transmission</span> concerne l'évolution de la structure de l'actionnariat, tandis que la <span class="hl">succession</span> se réfère à la relève des dirigeants.</p>
+              <p>Le choix d'un nouveau dirigeant est <span class="hlg">crucial</span> pour l'avenir de l'entreprise.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Quelle est la différence entre transmission et succession ?",
+                choices: [
+                  "La transmission concerne l'actionnariat, la succession les dirigeants",
+                  "Ce sont des synonymes",
+                  "La transmission est juridique, la succession économique",
+                  "La succession précède toujours la transmission"
+                ],
+                correctAnswer: 0,
+                explanation: "La transmission concerne la structure de l'actionnariat, la succession la relève des dirigeants."
+              },
+              {
+                type: "tf",
+                question: "Les entreprises familiales sont nécessairement de petite taille.",
+                correctAnswer: false,
+                explanation: "Bien que beaucoup soient petites, les entreprises familiales ne sont pas nécessairement de petite taille."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch6_s2",
+            title: "Gestion de crise et opérations financières",
+            content: `
+              <h4>La gestion de crise</h4>
+              <p>La gouvernance est mise à l'épreuve lors de <span class="hl">crises</span> menaçant la réputation ou la pérennité de l'entreprise. Elle doit reconnaître les <span class="hlg">signaux d'alarme</span> et réagir efficacement.</p>
+              <h4>Les opérations financières stratégiques</h4>
+              <p>Les <span class="hl">fusions et acquisitions</span> nécessitent une gouvernance robuste pour assurer :</p>
+              <ul>
+                <li>L'<span class="hl">alignement stratégique</span></li>
+                <li>Le <span class="hl">contrôle diligent</span> (due diligence)</li>
+                <li>La <span class="hl">gestion post-transaction</span></li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Que nécessitent les fusions et acquisitions en matière de gouvernance ?",
+                choices: ["Une gouvernance robuste", "Moins de contrôle", "L'absence du conseil", "Un audit externe uniquement"],
+                correctAnswer: 0,
+                explanation: "Les fusions et acquisitions nécessitent une gouvernance robuste pour l'alignement stratégique et le contrôle diligent."
+              },
+              {
+                type: "short",
+                question: "Quels aspects couvre la gouvernance lors de fusions-acquisitions ?",
+                correctAnswer: ["alignement stratégique", "contrôle diligent", "gestion post-transaction"],
+                explanation: "La gouvernance couvre l'alignement stratégique, le contrôle diligent et la gestion post-transaction."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch7",
+        title: "Petit mémento juridique",
+        sections: [
+          {
+            id: "gouvernance_ch7_s1",
+            title: "L'administrateur : fonction, capacité et droits",
+            content: `
+              <h4>La fonction d'administrateur</h4>
+              <p>L'<span class="hl">administrateur</span> est souvent choisi pour ses <span class="hlg">compétences</span> plutôt que pour ses diplômes. Des interdictions légales existent pour certains crimes et délits.</p>
+              <h4>Capacité et critères</h4>
+              <p>Les critères de compétence sont flexibles, basés sur l'<span class="hl">expérience</span> et les qualités personnelles. Des formations spécifiques ne sont pas obligatoires.</p>
+              <h4>Droits des administrateurs</h4>
+              <p>Les administrateurs ont des responsabilités importantes dans la gouvernance d'une <span class="hl">société anonyme (SA)</span>. Ils sont nommés par l'<span class="hlg">assemblée générale</span>.</p>
+              <h4>Mandat</h4>
+              <p>Le mandat est <span class="hl">limité dans le temps</span> et peut être renouvelé. Les administrateurs peuvent être <span class="hlg">révoqués à tout moment</span> par l'assemblée générale.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Sur quoi repose principalement le choix d'un administrateur ?",
+                choices: ["Ses compétences et son expérience", "Ses diplômes", "Son ancienneté", "Sa nationalité"],
+                correctAnswer: 0,
+                explanation: "L'administrateur est choisi pour ses compétences plutôt que pour ses diplômes."
+              },
+              {
+                type: "tf",
+                question: "Un administrateur peut être révoqué à tout moment par l'assemblée générale.",
+                correctAnswer: true,
+                explanation: "Les administrateurs sont révocables à tout moment par l'assemblée générale."
+              }
+            ]
+          },
+          {
+            id: "gouvernance_ch7_s2",
+            title: "Présidence, direction et rémunération",
+            content: `
+              <h4>Le président du conseil d'administration</h4>
+              <p>Le <span class="hl">président</span> est nommé parmi les administrateurs. Il a un rôle clé dans la gestion du conseil et peut cumuler avec d'autres fonctions.</p>
+              <h4>La direction générale</h4>
+              <p>Le <span class="hl">directeur général</span> est nommé par le conseil d'administration et représente légalement la société. Il détient le <span class="hlg">pouvoir exécutif</span> et est révocable à tout moment.</p>
+              <h4>Rémunération des administrateurs</h4>
+              <p>Les administrateurs reçoivent des <span class="hl">jetons de présence</span> fixés par l'assemblée générale. Ces revenus sont imposables et ne bénéficient pas de la protection sociale.</p>
+              <h4>Responsabilité</h4>
+              <p>Les administrateurs sont responsables <span class="hl">civilement</span>, <span class="hl">pénalement</span> et <span class="hl">financièrement</span> en cas de mauvaise gestion ou de violations des lois.</p>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Comment s'appelle la rémunération des administrateurs ?",
+                choices: ["Les jetons de présence", "Les dividendes", "Les honoraires", "Le salaire fixe"],
+                correctAnswer: 0,
+                explanation: "Les administrateurs reçoivent des jetons de présence fixés par l'assemblée générale."
+              },
+              {
+                type: "short",
+                question: "Sur quels plans un administrateur est-il responsable ?",
+                correctAnswer: ["civilement", "pénalement", "financièrement"],
+                explanation: "Les administrateurs sont responsables civilement, pénalement et financièrement."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        id: "gouvernance_ch8",
+        title: "Notions de fraude dans la gouvernance",
+        sections: [
+          {
+            id: "gouvernance_ch8_s1",
+            title: "Définitions et prise en compte de la fraude",
+            content: `
+              <h4>Définitions de la fraude</h4>
+              <p>Les auditeurs définissent la <span class="hl">fraude</span> de manière variée, souvent liée à des <span class="hlg">falsifications intentionnelles</span> de rapports financiers ou à des <span class="hlg">détournements de fonds</span>.</p>
+              <p>Les critères incluent toute représentation intentionnellement fausse ou la non-divulgation d'informations, causant ou risquant de causer un préjudice.</p>
+              <h4>Prise en compte du risque de fraude</h4>
+              <p>Les organisations doivent instaurer une <span class="hl">gouvernance solide</span>, conforme aux lois et bonnes pratiques, incluant :</p>
+              <ul>
+                <li>Un <span class="hl">contrôle interne</span> efficace</li>
+                <li>La <span class="hl">gestion des risques</span></li>
+                <li>L'<span class="hl">audit de gouvernance</span> pour identifier les dysfonctionnements</li>
+              </ul>
+              <h4>Loi Sarbanes-Oxley et fraude</h4>
+              <p>Cette loi américaine de 2002 impose :</p>
+              <ul>
+                <li>La <span class="hl">certification personnelle</span> des dirigeants sur l'exactitude des comptes.</li>
+                <li>L'<span class="hl">évaluation du contrôle interne</span>.</li>
+                <li>La <span class="hl">protection des informateurs</span> (whistleblowers).</li>
+              </ul>
+            `,
+            quiz: [
+              {
+                type: "mcq",
+                question: "Que prévoit la loi Sarbanes-Oxley pour les dirigeants ?",
+                choices: [
+                  "La certification personnelle sur l'exactitude des comptes",
+                  "L'immunité en cas de fraude",
+                  "La suppression de l'audit externe",
+                  "L'auto-évaluation sans contrôle"
+                ],
+                correctAnswer: 0,
+                explanation: "La loi impose la certification personnelle des dirigeants sur l'exactitude des comptes."
+              },
+              {
+                type: "tf",
+                question: "La loi Sarbanes-Oxley protège les informateurs (whistleblowers).",
+                correctAnswer: true,
+                explanation: "La protection des informateurs est l'une des mesures clés de cette loi."
+              },
+              {
+                type: "short",
+                question: "Quels mécanismes permettent de prévenir la fraude dans la gouvernance ?",
+                correctAnswer: ["contrôle interne", "gestion des risques", "audit"],
+                explanation: "Le contrôle interne, la gestion des risques et l'audit de gouvernance sont les principaux mécanismes."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
 ];
 
 // Fonction utilitaire pour compter les questions
