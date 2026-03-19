@@ -14,6 +14,7 @@ import { ProgressToast } from "@/components/ProgressToast";
 import { CourseCreatorModal, CourseImporter } from "@/components/CourseCreator";
 import { CourseQA } from "@/components/CourseQA";
 import { AppNav } from "@/components/AppNav";
+import { CourseSearch } from "@/components/CourseSearch";
 import { cn } from "@/lib/utils";
 
 type ToastType = "complete" | "uncomplete" | "reset" | null;
