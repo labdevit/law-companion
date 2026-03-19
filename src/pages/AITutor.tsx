@@ -408,12 +408,17 @@ export default function AITutor() {
       }
 
       const finalSections = parseSections(fullContent);
-      setConversation((prev) => [
-        ...prev,
+      const newEntries = [
+        ...conversation,
         { question: q, response: fullContent, sections: finalSections },
-      ]);
+      ];
+      setConversation(newEntries);
       setStreamingResponse("");
       setCurrentQuestion("");
+
+      // Save to database
+      const savedId = await saveConversation(newEntries, selectedCourseId, conversationId);
+      if (savedId && !conversationId) setConversationId(savedId);
     } catch (err) {
       setStreamingResponse(`❌ ${(err as Error).message}`);
     } finally {
