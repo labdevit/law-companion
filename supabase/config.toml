@@ -1,1 +1,10 @@
 project_id = "sknpoirnywcektktvrpz"
+
+[functions.process-course]
+verify_jwt = false
+
+[functions.ai-tutor]
+verify_jwt = false
+
+[functions.course-qa]
+verify_jwt = false
