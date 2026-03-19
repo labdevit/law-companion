@@ -1,9 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles, RotateCcw, MessageCircle } from "lucide-react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles, RotateCcw, MessageCircle, History } from "lucide-react";
 import { COURSES, getAllSections } from "@/data/courses";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
 import { AppNav } from "@/components/AppNav";
+import { TutorHistory } from "@/components/TutorHistory";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
