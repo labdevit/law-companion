@@ -8,6 +8,15 @@
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes slide-in-left {
+  0% { opacity: 0; transform: translateX(-100%); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out;
+}
+
 @keyframes confetti {
   0% { opacity: 1; transform: translateY(0) rotate(0deg) scale(0); }
   50% { opacity: 1; transform: translateY(-30px) rotate(180deg) scale(1.2); }

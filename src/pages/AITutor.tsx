@@ -1,9 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles, RotateCcw, MessageCircle } from "lucide-react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { Brain, Send, Loader2, BookOpen, ChevronDown, Lightbulb, GraduationCap, ArrowRight, Sparkles, RotateCcw, MessageCircle, History } from "lucide-react";
 import { COURSES, getAllSections } from "@/data/courses";
 import { useCustomCourses } from "@/hooks/useCustomCourses";
 import { useTheme } from "@/hooks/useTheme";
 import { AppNav } from "@/components/AppNav";
+import { TutorHistory } from "@/components/TutorHistory";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -271,6 +273,8 @@ export default function AITutor() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [showCourseSelect, setShowCourseSelect] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const { customCourses } = useCustomCourses();
   const { theme, toggleTheme } = useTheme();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -287,8 +291,42 @@ export default function AITutor() {
     }
   }, [streamingResponse, conversation.length]);
 
+  const saveConversation = useCallback(async (entries: ConversationEntry[], courseId: string | null, existingId: string | null) => {
+    const title = entries[0]?.question?.slice(0, 80) || "Nouvelle conversation";
+    const messages = entries.map((e) => ({ question: e.question, response: e.response }));
+
+    if (existingId) {
+      await supabase
+        .from("tutor_conversations")
+        .update({ title, messages, course_id: courseId, updated_at: new Date().toISOString() } as any)
+        .eq("id", existingId);
+      return existingId;
+    } else {
+      const { data } = await supabase
+        .from("tutor_conversations")
+        .insert({ title, messages, course_id: courseId } as any)
+        .select("id")
+        .single();
+      return data?.id || null;
+    }
+  }, []);
+
   const handleNewConversation = () => {
     setConversation([]);
+    setStreamingResponse("");
+    setCurrentQuestion("");
+    setConversationId(null);
+  };
+
+  const handleSelectConversation = (conv: any) => {
+    const entries: ConversationEntry[] = (conv.messages || []).map((m: any) => ({
+      question: m.question,
+      response: m.response,
+      sections: parseSections(m.response),
+    }));
+    setConversation(entries);
+    setConversationId(conv.id);
+    setSelectedCourseId(conv.course_id || null);
     setStreamingResponse("");
     setCurrentQuestion("");
   };
@@ -370,12 +408,17 @@ export default function AITutor() {
       }
 
       const finalSections = parseSections(fullContent);
-      setConversation((prev) => [
-        ...prev,
+      const newEntries = [
+        ...conversation,
         { question: q, response: fullContent, sections: finalSections },
-      ]);
+      ];
+      setConversation(newEntries);
       setStreamingResponse("");
       setCurrentQuestion("");
+
+      // Save to database
+      const savedId = await saveConversation(newEntries, selectedCourseId, conversationId);
+      if (savedId && !conversationId) setConversationId(savedId);
     } catch (err) {
       setStreamingResponse(`❌ ${(err as Error).message}`);
     } finally {
@@ -416,6 +459,14 @@ export default function AITutor() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-border/40 bg-card/60 hover:bg-muted/50 transition-all font-medium"
+              title="Historique des conversations"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Historique</span>
+            </button>
             {hasContent && (
               <button
                 onClick={handleNewConversation}
@@ -651,6 +702,14 @@ export default function AITutor() {
           </div>
         </div>
       </div>
+
+      <TutorHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        currentConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+      />
 
       <AppNav />
     </div>
