@@ -526,7 +526,7 @@ async function processInBackground(jobId: string, body: any) {
   }
 }
 
-async function triggerBackgroundProcessing(jobId: string, body: any) {
+async function selfInvokeForBackground(jobId: string, body: any) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const supabase = getSupabase();
@@ -534,37 +534,29 @@ async function triggerBackgroundProcessing(jobId: string, body: any) {
   if (!supabaseUrl || !anonKey) {
     await updateJob(supabase, jobId, {
       status: "failed",
-      error: "Configuration serveur manquante pour lancer le traitement différé",
+      error: "Configuration serveur manquante",
     });
     return;
   }
 
   try {
-    const response = await fetch(`${supabaseUrl}/functions/v1/process-course`, {
+    // Fire a second invocation that will await the heavy work with full wall-clock budget
+    fetch(`${supabaseUrl}/functions/v1/process-course`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${anonKey}`,
         apikey: anonKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ...body, background: true, jobId }),
+      body: JSON.stringify({ _background: true, _jobId: jobId, content: body.content, fileName: body.fileName }),
+    }).catch((err) => {
+      console.error("Self-invoke fetch error (may be expected):", err);
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("Failed to trigger background processing:", response.status, text);
-      await updateJob(supabase, jobId, {
-        status: "failed",
-        error: `Impossible de démarrer le traitement différé (${response.status})`,
-      });
-    }
+    // Small delay to ensure the request is dispatched
+    await new Promise((r) => setTimeout(r, 300));
   } catch (error) {
-    console.error("Background trigger error:", error);
-    const message = error instanceof Error ? error.message : "Erreur inconnue";
-    await updateJob(supabase, jobId, {
-      status: "failed",
-      error: `Impossible de démarrer le traitement différé : ${message}`,
-    });
+    console.error("Self-invoke error:", error);
   }
 }
 
@@ -572,14 +564,14 @@ async function createProcessingJob(body: any) {
   const supabase = getSupabase();
   const { data: job, error } = await supabase
     .from("processing_jobs")
-    .insert({ status: "processing", progress: 0, error: null })
+    .insert({ status: "queued", progress: 0, error: null })
     .select()
     .single();
 
   if (error || !job) throw new Error("Failed to create processing job");
 
   // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
-  EdgeRuntime.waitUntil(triggerBackgroundProcessing(job.id, body));
+  EdgeRuntime.waitUntil(selfInvokeForBackground(job.id, body));
   return job.id;
 }
 
@@ -588,20 +580,23 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { content, file, storagePath, fileName, forceAsync, background, jobId } = body;
 
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY is not configured");
 
-    if (background && jobId) {
-      console.log("Starting background worker for job:", jobId);
-      // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
-      EdgeRuntime.waitUntil(processInBackground(jobId, body));
-      return new Response(JSON.stringify({ started: true, job_id: jobId }), {
-        status: 202,
+    // ── BACKGROUND WORKER PATH ──
+    // Second invocation: awaits the heavy processing with full wall-clock time
+    if (body._background && body._jobId) {
+      console.log("Background worker started for job:", body._jobId);
+      await processInBackground(body._jobId, body);
+      console.log("Background worker finished for job:", body._jobId);
+      return new Response(JSON.stringify({ done: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ── NORMAL REQUEST PATH ──
+    const { content, file, storagePath, fileName, forceAsync } = body;
 
     if ((!content || typeof content !== "string") && !file && !storagePath) {
       return new Response(JSON.stringify({ error: "Le champ 'content', 'file' ou 'storagePath' est requis" }), {
@@ -614,6 +609,7 @@ serve(async (req) => {
       const normalizedContent = normalizeTextContent(content);
       const directRequestLimit = getDirectRequestLimit(fileName, forceAsync);
 
+      // Small text → synchronous
       if (normalizedContent.length <= directRequestLimit) {
         const course = await processTextContent(lovableApiKey, normalizedContent, fileName);
         if (!course) throw new Error("L'IA n'a pas renvoyé de structure exploitable");
@@ -623,7 +619,8 @@ serve(async (req) => {
         });
       }
 
-      const newJobId = await createProcessingJob({ ...body, content: normalizedContent });
+      // Large text → async job
+      const newJobId = await createProcessingJob({ content: normalizedContent, fileName });
       return new Response(JSON.stringify({ job_id: newJobId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
