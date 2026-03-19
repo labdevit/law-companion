@@ -459,6 +459,14 @@ export default function AITutor() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-xl border border-border/40 bg-card/60 hover:bg-muted/50 transition-all font-medium"
+              title="Historique des conversations"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Historique</span>
+            </button>
             {hasContent && (
               <button
                 onClick={handleNewConversation}
