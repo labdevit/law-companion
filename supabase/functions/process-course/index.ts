@@ -552,12 +552,9 @@ serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // ── BACKGROUND WORKER PATH ──
-    // Second invocation: awaits the heavy processing with full wall-clock time
+    // Legacy background worker path (no longer used, kept for safety)
     if (body._background && body._jobId) {
-      console.log("Background worker started for job:", body._jobId);
       await processInBackground(body._jobId, body);
-      console.log("Background worker finished for job:", body._jobId);
       return new Response(JSON.stringify({ done: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
