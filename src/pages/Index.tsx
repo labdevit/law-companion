@@ -242,6 +242,11 @@ const Index = () => {
             </div>
           )}
 
+          {/* Search */}
+          <div className="mb-6 animate-fade-in" style={{ animationDelay: "90ms" }}>
+            <CourseSearch courses={allCourses} onNavigate={handleSearchNavigate} />
+          </div>
+
           {/* Course grid */}
           <section className="animate-fade-in" style={{ animationDelay: "100ms" }}>
             <div className="flex items-center justify-between mb-5">
