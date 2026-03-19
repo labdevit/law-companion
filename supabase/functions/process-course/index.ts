@@ -526,40 +526,6 @@ async function processInBackground(jobId: string, body: any) {
   }
 }
 
-async function selfInvokeForBackground(jobId: string, body: any) {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const supabase = getSupabase();
-
-  if (!supabaseUrl || !anonKey) {
-    await updateJob(supabase, jobId, {
-      status: "failed",
-      error: "Configuration serveur manquante",
-    });
-    return;
-  }
-
-  try {
-    // Fire a second invocation that will await the heavy work with full wall-clock budget
-    fetch(`${supabaseUrl}/functions/v1/process-course`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${anonKey}`,
-        apikey: anonKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ _background: true, _jobId: jobId, content: body.content, fileName: body.fileName }),
-    }).catch((err) => {
-      console.error("Self-invoke fetch error (may be expected):", err);
-    });
-
-    // Small delay to ensure the request is dispatched
-    await new Promise((r) => setTimeout(r, 300));
-  } catch (error) {
-    console.error("Self-invoke error:", error);
-  }
-}
-
 async function createProcessingJob(body: any) {
   const supabase = getSupabase();
   const { data: job, error } = await supabase
@@ -570,8 +536,10 @@ async function createProcessingJob(body: any) {
 
   if (error || !job) throw new Error("Failed to create processing job");
 
+  // Use waitUntil to run the heavy processing in the background
+  // while the HTTP response is returned immediately
   // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
-  EdgeRuntime.waitUntil(selfInvokeForBackground(job.id, body));
+  EdgeRuntime.waitUntil(processInBackground(job.id, body));
   return job.id;
 }
 
