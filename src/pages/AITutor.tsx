@@ -703,6 +703,14 @@ export default function AITutor() {
         </div>
       </div>
 
+      <TutorHistory
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        currentConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+      />
+
       <AppNav />
     </div>
   );
