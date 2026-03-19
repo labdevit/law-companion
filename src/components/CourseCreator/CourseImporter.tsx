@@ -157,7 +157,9 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
         if (job.status === "complete") return job.result;
         if (job.status === "failed") throw new Error(job.error || "Le traitement a échoué");
 
-        if (job.progress > 0) {
+        if (job.status === "queued") {
+          setProcessingMessage("En attente du démarrage du traitement...");
+        } else if (job.progress > 0) {
           setProcessingMessage(`Traitement en cours... ${job.progress}%`);
         }
 
