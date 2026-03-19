@@ -104,7 +104,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
     }, 3000);
 
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, string | boolean> = {};
 
       if (attachedFile?.rawFile) {
         setProcessingMessage("Extraction du texte du document...");
@@ -116,6 +116,7 @@ export function CourseImporter({ isOpen, onClose, onImport }: CourseImporterProp
         }
 
         body.fileName = attachedFile.name;
+        body.forceAsync = true;
         body.content = `Document source : ${attachedFile.name}\n\n${optimizeExtractedTextForAI(extractedText, 30000)}`;
       } else {
         body.content = rawContent.trim();
