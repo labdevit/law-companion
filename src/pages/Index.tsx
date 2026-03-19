@@ -66,6 +66,19 @@ const Index = () => {
   const { currentStreak, dailyGoal, todayCompleted, allAchievements, recordStudy } = useStreak(stats.sectionsCompleted);
   const [toastType, setToastType] = useState<ToastType>(null);
 
+  const handleSearchNavigate = useCallback((courseId: string, sectionId?: string) => {
+    setActiveCourseId(courseId);
+    if (sectionId) {
+      setActiveSectionId(sectionId);
+    } else {
+      const course = allCourses.find((c) => c.id === courseId);
+      if (course && course.chapters[0]?.sections[0]) {
+        setActiveSectionId(course.chapters[0].sections[0].id);
+      }
+    }
+    setSidebarOpen(false);
+  }, [allCourses]);
+
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
     const course = allCourses.find((c) => c.id === courseId);
