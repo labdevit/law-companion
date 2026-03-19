@@ -7,11 +7,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const DIRECT_REQUEST_MAX_CHARS = 45000;
+const DIRECT_REQUEST_MAX_CHARS = 20000;
+const FILE_DIRECT_REQUEST_MAX_CHARS = 12000;
 const DIRECT_MODEL_MAX_CHARS = 45000;
 const CHUNK_TARGET_CHARS = 18000;
 const CHUNK_HARD_MAX_CHARS = 24000;
 const FINAL_CONTEXT_MAX_CHARS = 90000;
+
+function getDirectRequestLimit(fileName?: string, forceAsync?: boolean) {
+  if (forceAsync) return 0;
+  return fileName ? FILE_DIRECT_REQUEST_MAX_CHARS : DIRECT_REQUEST_MAX_CHARS;
+}
 
 function getSupabase() {
   return createClient(
@@ -461,7 +467,7 @@ async function processInBackground(jobId: string, body: any) {
 
   try {
     let course: any = null;
-    await updateJob(supabase, jobId, { status: "processing", progress: 5 });
+    await updateJob(supabase, jobId, { status: "processing", progress: 5, error: null });
 
     if (body.storagePath) {
       console.log("Processing file from storage:", body.storagePath);
@@ -497,6 +503,7 @@ async function processInBackground(jobId: string, body: any) {
 
       await supabase.storage.from("course-files").remove([body.storagePath]);
     } else if (body.file?.base64) {
+      await updateJob(supabase, jobId, { progress: 35 });
       const mimeType = body.file.type || "application/pdf";
       course = await buildStructuredCourse(
         lovableApiKey,
@@ -519,18 +526,60 @@ async function processInBackground(jobId: string, body: any) {
   }
 }
 
+async function triggerBackgroundProcessing(jobId: string, body: any) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const supabase = getSupabase();
+
+  if (!supabaseUrl || !anonKey) {
+    await updateJob(supabase, jobId, {
+      status: "failed",
+      error: "Configuration serveur manquante pour lancer le traitement différé",
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/process-course`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...body, background: true, jobId }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("Failed to trigger background processing:", response.status, text);
+      await updateJob(supabase, jobId, {
+        status: "failed",
+        error: `Impossible de démarrer le traitement différé (${response.status})`,
+      });
+    }
+  } catch (error) {
+    console.error("Background trigger error:", error);
+    const message = error instanceof Error ? error.message : "Erreur inconnue";
+    await updateJob(supabase, jobId, {
+      status: "failed",
+      error: `Impossible de démarrer le traitement différé : ${message}`,
+    });
+  }
+}
+
 async function createProcessingJob(body: any) {
   const supabase = getSupabase();
   const { data: job, error } = await supabase
     .from("processing_jobs")
-    .insert({ status: "processing", progress: 0 })
+    .insert({ status: "processing", progress: 0, error: null })
     .select()
     .single();
 
   if (error || !job) throw new Error("Failed to create processing job");
 
   // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
-  EdgeRuntime.waitUntil(processInBackground(job.id, body));
+  EdgeRuntime.waitUntil(triggerBackgroundProcessing(job.id, body));
   return job.id;
 }
 
@@ -539,7 +588,20 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { content, file, storagePath, fileName } = body;
+    const { content, file, storagePath, fileName, forceAsync, background, jobId } = body;
+
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    if (background && jobId) {
+      console.log("Starting background worker for job:", jobId);
+      // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+      EdgeRuntime.waitUntil(processInBackground(jobId, body));
+      return new Response(JSON.stringify({ started: true, job_id: jobId }), {
+        status: 202,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if ((!content || typeof content !== "string") && !file && !storagePath) {
       return new Response(JSON.stringify({ error: "Le champ 'content', 'file' ou 'storagePath' est requis" }), {
@@ -548,13 +610,11 @@ serve(async (req) => {
       });
     }
 
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY is not configured");
-
     if (content && typeof content === "string" && !file && !storagePath) {
       const normalizedContent = normalizeTextContent(content);
+      const directRequestLimit = getDirectRequestLimit(fileName, forceAsync);
 
-      if (normalizedContent.length <= DIRECT_REQUEST_MAX_CHARS) {
+      if (normalizedContent.length <= directRequestLimit) {
         const course = await processTextContent(lovableApiKey, normalizedContent, fileName);
         if (!course) throw new Error("L'IA n'a pas renvoyé de structure exploitable");
 
@@ -563,14 +623,14 @@ serve(async (req) => {
         });
       }
 
-      const jobId = await createProcessingJob({ ...body, content: normalizedContent });
-      return new Response(JSON.stringify({ job_id: jobId }), {
+      const newJobId = await createProcessingJob({ ...body, content: normalizedContent });
+      return new Response(JSON.stringify({ job_id: newJobId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const jobId = await createProcessingJob(body);
-    return new Response(JSON.stringify({ job_id: jobId }), {
+    const newJobId = await createProcessingJob(body);
+    return new Response(JSON.stringify({ job_id: newJobId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
